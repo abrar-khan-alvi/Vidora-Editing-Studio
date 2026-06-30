@@ -12,7 +12,7 @@ const Draggable: React.FC<DraggableProps> = ({
   children,
   renderCustomPreview,
   data = {},
-  shouldDisplayPreview = true
+  shouldDisplayPreview = true,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -25,7 +25,7 @@ const Draggable: React.FC<DraggableProps> = ({
 
     setPosition({
       x: e.clientX,
-      y: e.clientY
+      y: e.clientY,
     });
   };
 
@@ -38,7 +38,7 @@ const Draggable: React.FC<DraggableProps> = ({
     if (isDragging) {
       setPosition({
         x: e.clientX,
-        y: e.clientY
+        y: e.clientY,
       });
     }
   };
@@ -50,7 +50,7 @@ const Draggable: React.FC<DraggableProps> = ({
       if (isDragging) {
         setPosition({
           x: e.clientX,
-          y: e.clientY
+          y: e.clientY,
         });
       }
     };
@@ -70,8 +70,8 @@ const Draggable: React.FC<DraggableProps> = ({
     onDragEnd: handleDragEnd,
     onDragOver: handleDragOver,
     style: {
-      ...(children.props as any)?.style
-    }
+      ...(children.props as any)?.style,
+    },
   } as any);
 
   return (
@@ -86,12 +86,12 @@ const Draggable: React.FC<DraggableProps> = ({
                 top: position.y,
                 pointerEvents: "none",
                 zIndex: 9999,
-                transform: "translate(-50%, -50%)" // Center the preview
+                transform: "translate(-50%, -50%)", // Center the preview
               }}
             >
               {renderCustomPreview}
             </div>,
-            document.body
+            document.body,
           )
         : null}
     </>

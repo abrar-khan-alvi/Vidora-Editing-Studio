@@ -1,58 +1,101 @@
 <p align="center">
-  <a href="https://github.com/designcombo/react-video-editor">
-    <img width="150px" height="150px" src="https://cdn.designcombo.dev/combo-logo-black.png"/>
+  <a href="https://github.com/openvideodev/openvideo">
+    <img width="150px" height="150px" src="https://cdn.scenify.io/openvideo-logo.png"/>
   </a>
 </p>
-<h1 align="center">React Video Editor</h1>
+<h1 align="center">OpenVideo Editor</h1>
 
-<div align="center">
-  
-Video Editor application using React and TypeScript.
+<p align="center">A lightweight, high-performance, client-side web video editor. It serves as a showcase for the OpenVideo engine and a starter kit for building video-editing SaaS applications.</p>
 
 <p align="center">
-    <a href="https://designcombo.dev/">Combo</a>
-    ·  
-    <a href="https://discord.gg/jrZs3wZyM5">Discord</a>
-    ·  
-    <a href="https://github.com/designcombo/react-video-editor">X</a>
+    <a href="https://openvideo.dev/">Website</a>
+    ·
+    <a href="https://discord.gg/SCfMrQx8kr">Discord</a>
+    ·
+    <a href="https://docs.openvideo.dev">Docs</a>
 </p>
-</div>
 
-[![](./images/combo.png)](https://github.com/designcombo/react-video-editor)
+<p align="center">
+    <a href="https://github.com/openvideodev/openvideo">
+        <img src="https://cdn.scenify.io/openpreview1.png" alt="OpenVideo Preview" />
+    </a>
+</p>
 
-## ✨ Features
+---
 
-- 🎬 Timeline Editing: Arrange and trim media on a visual timeline.
-- 🌟 Effects and Transitions: Apply visual effects, filters, and transitions.
-- 🔀 Multi-track Support: Edit multiple video and audio tracks simultaneously.
-- 📤 Export Options: Save videos in various resolutions and formats.
-- 👀 Real-time Preview: See immediate previews of edits.
+## Key Features
 
-## 🚀 See It in Action
+- **Client-Side Rendering**: Hardware-accelerated rendering and exporting using WebCodecs and PixiJS v8 via `@openvideo/engine-pixi`.
+- **Multi-Track Timeline**: Layered editing for video, audio, and images with drag-and-drop, splitting, trimming, and snapping.
+- **Interactive Canvas**: Real-time viewport preview supporting drag, resize, rotate, and layer re-ordering.
+- **Asset Management**: Local and cloud storage (e.g., Cloudflare R2, AWS S3) for media uploads.
+- **Effects & Transitions**: Custom shader-based transitions and effects applied between clips.
+- **Local Exporting**: Direct timeline rendering into MP4 files using browser APIs with zero server rendering costs.
+- **Modern UI/UX**: Dark-mode interface built with Tailwind CSS v4, Radix UI, and Framer Motion.
 
-Check out the deployed version here: [React Video Editor Live Demo](https://video.designcombo.dev/)
 
-## ⌨️ Development
+---
 
-### Environment Variables
+## Tech Stack
 
-Create a `.env` file in the project root and add the following:
+| Component | Technology |
+| :--- | :--- |
+| **Framework** | Next.js 15 (App Router) |
+| **Rendering** | PixiJS v8 via `@openvideo/engine-pixi` |
+| **Timeline & Core** | `@openvideo/core`, `@openvideo/timeline` |
+| **State** | Zustand |
+| **Styling** | Tailwind CSS v4 |
+| **UI & Animation** | Radix UI, shadcn/ui, Framer Motion |
 
-```env
-PEXELS_API_KEY=""
-```
+---
 
-Clone locally:
+## Getting Started
+
+### 1. Installation
+
+Install dependencies from the monorepo root or directly in this directory:
 
 ```bash
-git clone git@github.com:designcombo/react-video-editor.git
-cd react-video-editor
+# From the monorepo root
 pnpm install
-pnpm dev
+
+# Or within this directory (standalone)
+npm install
 ```
 
-Open your browser and visit http://localhost:3000 , see more at [Development](https://github.com/designcombo/react-video-editor).
+### 2. Environment Setup
 
-## 📝 License
+Copy `.env.sample` to `.env` and configure the required keys:
 
-Copyright © 2025 [DesignCombo](https://designcombo.dev/).
+```bash
+cp .env.sample .env
+```
+
+| Variable | Description |
+| :--- | :--- |
+| `R2_*` | Cloudflare R2 / S3 credentials and public CDN domain for asset uploads. |
+| `DEEPGRAM_API_KEY` | API key for audio and video transcription. |
+| `PEXELS_API_KEY` | API key for the stock media library. |
+
+
+### 3. Run the Development Server
+
+```bash
+pnpm dev
+# or
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## License & Commercial Usage
+
+OpenVideo is available under a dual-license model:
+
+- **Free License**: Free for individuals, non-profits, and organizations with up to 3 employees.
+- **Company License**: Required for organizations with more than 3 employees.
+
+
+For commercial licensing, custom integrations, or enterprise support, contact us at [cloud@openvideo.dev](mailto:cloud@openvideo.dev).

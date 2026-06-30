@@ -1,84 +1,62 @@
-import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
+import { type NextRequest, NextResponse } from "next/server";
+import { config } from "@/lib/config";
+import { R2StorageService } from "@/lib/r2";
 
 interface PresignRequest {
   userId: string;
   fileNames: string[];
 }
 
-interface ExternalPresignResponse {
-  fileName: string;
-  filePath: string;
-  contentType: string;
-  presignedUrl: string;
-  folder?: string;
-  url: string;
-}
-
-interface ExternalPresignsResponse {
-  uploads: ExternalPresignResponse[];
-}
+const r2 = new R2StorageService({
+  bucketName: config.r2.bucket,
+  accessKeyId: config.r2.accessKeyId,
+  secretAccessKey: config.r2.secretAccessKey,
+  accountId: config.r2.accountId,
+  cdn: config.r2.cdn,
+});
 
 export async function POST(request: NextRequest) {
   try {
     const body: PresignRequest = await request.json();
-    const { userId, fileNames } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    const { userId = "mockuser", fileNames } = body;
 
     if (!fileNames || !Array.isArray(fileNames) || fileNames.length === 0) {
       return NextResponse.json(
         { error: "fileNames array is required and must not be empty" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Call external presigned URL service
-    const externalResponse = await fetch(
-      "https://upload-file-j43uyuaeza-uc.a.run.app/presigned",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          userId,
-          fileNames
-        })
-      }
+    const uploads = await Promise.all(
+      fileNames.map(async (originalName) => {
+        const cleanName = originalName.trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+        const uniqueName = `${userId}/${randomUUID()}-${cleanName}`;
+
+        const presigned = await r2.createPresignedUpload(uniqueName, {
+          contentType: undefined,
+          expiresIn: 3600,
+        });
+
+        return {
+          fileName: cleanName,
+          filePath: presigned.filePath,
+          contentType: presigned.contentType,
+          presignedUrl: presigned.presignedUrl,
+          url: presigned.url,
+        };
+      }),
     );
 
-    if (!externalResponse.ok) {
-      const errorData = await externalResponse.json();
-      return NextResponse.json(
-        {
-          error: "External presigned URL service failed",
-          details: errorData
-        },
-        { status: externalResponse.status }
-      );
-    }
-
-    const externalData: ExternalPresignsResponse =
-      await externalResponse.json();
-    const { uploads = [] } = externalData;
-
-    return NextResponse.json({
-      success: true,
-      uploads: uploads
-    });
+    return NextResponse.json({ success: true, uploads });
   } catch (error) {
     console.error("Error in presign route:", error);
     return NextResponse.json(
       {
         error: "Internal server error",
-        details: error instanceof Error ? error.message : String(error)
+        details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

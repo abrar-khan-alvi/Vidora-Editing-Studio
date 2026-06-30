@@ -7,7 +7,7 @@ const sizerStyle: React.CSSProperties = {
   visibility: "hidden",
   height: 0,
   overflow: "scroll",
-  whiteSpace: "pre"
+  whiteSpace: "pre",
 };
 
 const INPUT_PROPS_BLACKLIST: Array<keyof AutosizeInputProps> = [
@@ -18,11 +18,10 @@ const INPUT_PROPS_BLACKLIST: Array<keyof AutosizeInputProps> = [
   "inputStyle",
   "minWidth",
   "onAutosize",
-  "placeholderIsMinWidth"
+  "placeholderIsMinWidth",
 ];
 
-interface AutosizeInputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+interface AutosizeInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   className?: string;
   extraWidth?: number | string;
   injectStyles?: boolean;
@@ -34,9 +33,7 @@ interface AutosizeInputProps
   placeholderIsMinWidth?: boolean;
 }
 
-const cleanInputProps = (
-  inputProps: AutosizeInputProps
-): AutosizeInputProps => {
+const cleanInputProps = (inputProps: AutosizeInputProps): AutosizeInputProps => {
   const cleanedProps = { ...inputProps };
   for (const field of INPUT_PROPS_BLACKLIST) {
     delete cleanedProps[field];
@@ -73,7 +70,7 @@ const AutosizeInput: React.FC<AutosizeInputProps> = (props) => {
   } = props;
 
   const [inputWidth, setInputWidth] = useState<number>(
-    typeof minWidth === "number" ? minWidth : Number.parseInt(minWidth)
+    typeof minWidth === "number" ? minWidth : Number.parseInt(minWidth),
   );
   const [inputId] = useState<string>(id || "uniqueid");
   const inputEl = useRef<HTMLInputElement | null>(null);
@@ -82,18 +79,11 @@ const AutosizeInput: React.FC<AutosizeInputProps> = (props) => {
 
   useEffect(() => {
     const updateInputWidth = () => {
-      if (
-        !sizerEl.current ||
-        typeof sizerEl.current.scrollWidth === "undefined"
-      )
-        return;
+      if (!sizerEl.current || typeof sizerEl.current.scrollWidth === "undefined") return;
       let newInputWidth: number;
       if (placeholder && (!value || (value && placeholderIsMinWidth))) {
         newInputWidth =
-          Math.max(
-            sizerEl.current.scrollWidth,
-            placeHolderSizerEl.current?.scrollWidth || 0
-          ) + 2;
+          Math.max(sizerEl.current.scrollWidth, placeHolderSizerEl.current?.scrollWidth || 0) + 2;
       } else {
         newInputWidth = sizerEl.current.scrollWidth + 2;
       }
@@ -104,12 +94,8 @@ const AutosizeInput: React.FC<AutosizeInputProps> = (props) => {
           : Number.parseInt(extraWidth as string) || 0;
       newInputWidth += calculatedExtraWidth;
 
-      if (
-        newInputWidth <
-        (typeof minWidth === "number" ? minWidth : Number.parseInt(minWidth))
-      ) {
-        newInputWidth =
-          typeof minWidth === "number" ? minWidth : Number.parseInt(minWidth);
+      if (newInputWidth < (typeof minWidth === "number" ? minWidth : Number.parseInt(minWidth))) {
+        newInputWidth = typeof minWidth === "number" ? minWidth : Number.parseInt(minWidth);
       }
 
       if (newInputWidth !== inputWidth) {
@@ -122,8 +108,7 @@ const AutosizeInput: React.FC<AutosizeInputProps> = (props) => {
 
     const handleCopyInputStyles = () => {
       if (!window.getComputedStyle) return;
-      const inputStyles =
-        inputEl.current && window.getComputedStyle(inputEl.current);
+      const inputStyles = inputEl.current && window.getComputedStyle(inputEl.current);
       if (!inputStyles) return;
       if (sizerEl.current) {
         copyStyles(inputStyles, sizerEl.current);
@@ -135,15 +120,7 @@ const AutosizeInput: React.FC<AutosizeInputProps> = (props) => {
 
     handleCopyInputStyles();
     updateInputWidth();
-  }, [
-    value,
-    placeholder,
-    placeholderIsMinWidth,
-    extraWidth,
-    minWidth,
-    inputWidth,
-    onAutosize
-  ]);
+  }, [value, placeholder, placeholderIsMinWidth, extraWidth, minWidth, inputWidth, onAutosize]);
 
   const sizerValue = [defaultValue, value, ""].reduce<any>(
     (previousValue, currentValue) => {
@@ -152,7 +129,7 @@ const AutosizeInput: React.FC<AutosizeInputProps> = (props) => {
       }
       return currentValue;
     },
-    undefined // Initial value for reduce
+    undefined, // Initial value for reduce
   );
 
   return (
@@ -165,7 +142,7 @@ const AutosizeInput: React.FC<AutosizeInputProps> = (props) => {
         style={{
           boxSizing: "content-box",
           width: `${inputWidth}px`,
-          ...inputStyle
+          ...inputStyle,
         }}
         ref={(el) => {
           inputEl.current = el;

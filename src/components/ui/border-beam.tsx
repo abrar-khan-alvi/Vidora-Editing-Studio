@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface BorderBeamProps {
   className?: string;
@@ -9,17 +10,19 @@ interface BorderBeamProps {
   colorFrom?: string;
   colorTo?: string;
   delay?: number;
+  radius?: number;
 }
 
 export function BorderBeam({
   className,
-  size = 200,
+  size = 140,
   duration = 15,
   anchor = 90,
   borderWidth = 1.5,
+  radius = 8,
   colorFrom = "#ffaa40",
   colorTo = "#9c40ff",
-  delay = 0
+  delay = 0,
 }: BorderBeamProps) {
   return (
     <div
@@ -31,19 +34,69 @@ export function BorderBeam({
           "--border-width": borderWidth,
           "--color-from": colorFrom,
           "--color-to": colorTo,
-          "--delay": `-${delay}s`
+          "--delay": `-${delay}s`,
         } as React.CSSProperties
       }
-      className={cn(
-        "pointer-events-none absolute inset-0 rounded-[inherit] [border:calc(var(--border-width)*1px)_solid_transparent]",
-
-        // mask styles
-        "![mask-clip:padding-box,border-box] ![mask-composite:intersect] [mask:linear-gradient(transparent,transparent),linear-gradient(white,white)]",
-
-        // pseudo styles
-        "after:animate-border-beam after:absolute after:aspect-square after:w-[calc(var(--size)*1px)] after:[animation-delay:var(--delay)] after:[background:linear-gradient(to_left,var(--color-from),var(--color-to),transparent)] after:[offset-anchor:calc(var(--anchor)*1%)_50%] after:[offset-path:rect(0_auto_auto_0_round_calc(var(--size)*1px))]",
-        className
-      )}
-    />
+      className={cn("absolute inset-0 rounded-[inherit] pointer-events-none", className)}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="100%"
+        height="100%"
+        className="absolute inset-0 rounded-[inherit]"
+        style={{ borderRadius: "inherit" }}
+      >
+        <rect
+          x={borderWidth}
+          y={borderWidth}
+          width={`calc(100% - ${borderWidth * 2}px)`}
+          height={`calc(100% - ${borderWidth * 2}px)`}
+          rx={radius}
+          ry={radius}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={borderWidth}
+        />
+        <motion.rect
+          x={borderWidth}
+          y={borderWidth}
+          width={`calc(100% - ${borderWidth * 2}px)`}
+          height={`calc(100% - ${borderWidth * 2}px)`}
+          rx={radius}
+          ry={radius}
+          fill="none"
+          stroke={`url(#border-beam-gradient-${colorFrom}-${colorTo})`}
+          strokeWidth={borderWidth}
+          strokeLinecap="round"
+          // Set pathLength to 1 to normalize the path for the dasharray
+          pathLength={1}
+          // Dasharray: [beam length, gap length]
+          // normalized: beam (size/1000), gap (1 - beam) to sum to 1
+          strokeDasharray={`${size / 1000} ${1 - size / 1000}`}
+          initial={{ strokeDashoffset: 0 }}
+          animate={{ strokeDashoffset: -1 }}
+          transition={{
+            repeat: Infinity,
+            repeatType: "loop",
+            duration: duration,
+            ease: "linear",
+            delay: delay,
+          }}
+          className="rounded-[inherit]"
+        />
+        <defs>
+          <linearGradient
+            id={`border-beam-gradient-${colorFrom}-${colorTo}`}
+            x1="0%"
+            y1="0%"
+            x2="100%"
+            y2="100%"
+          >
+            <stop offset="0%" stopColor={colorFrom} stopOpacity="1" />
+            <stop offset="100%" stopColor={colorTo} stopOpacity="1" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
   );
 }
