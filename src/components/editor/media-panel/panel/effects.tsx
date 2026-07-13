@@ -10,6 +10,7 @@ import { formatFilterName } from "@/utils/effects";
 import { core } from "@/lib/project";
 import Draggable from "@/components/shared/draggable";
 import { useIsDraggingOverTimeline } from "@/hooks/use-is-dragging-over-timeline";
+import { nanoid } from "nanoid";
 
 const EFFECT_DURATION_DEFAULT = 5000000;
 
@@ -138,13 +139,41 @@ const CombinedEffects = () => {
     if (key === "embossFilter") effectValues.strength = 5;
     if (key === "pixelateFilter") effectValues.size = 10;
 
-    await core.clip.add({
+    const state = core.store.getState();
+    let targetTrack = state.tracks.find((t) => t?.type?.toLowerCase() === "effect");
+    let trackId = targetTrack?.id;
+
+    const commands: any[] = [];
+
+    if (!trackId) {
+      trackId = "track_" + nanoid(10);
+      commands.push({
+        id: nanoid(),
+        type: "track.add",
+        payload: { id: trackId, name: "Effects", type: "effect", clipIds: [] },
+      });
+    }
+
+    const playheadTime = state.currentTime || 0;
+    const newClipJson = {
       type: "Effect",
       name: formatFilterName(key),
       effectKey: key,
-      display: { from: 0, to: EFFECT_DURATION_DEFAULT },
+      display: {
+        from: playheadTime,
+        to: Math.min(playheadTime + EFFECT_DURATION_DEFAULT, state.settings.duration),
+      },
       duration: EFFECT_DURATION_DEFAULT,
+    };
+
+    const preparedClip = await core.clip.prepare(newClipJson as any);
+    commands.push({
+      id: nanoid(),
+      type: "clip.add",
+      payload: { clip: preparedClip, trackId },
     });
+
+    core.batch(commands);
   };
 
   const handleCustomClick = async (preset: CustomPreset) => {
@@ -154,13 +183,42 @@ const CombinedEffects = () => {
       label: preset.data.label || preset.name,
       fragment: preset.data.fragment,
     } as any);
-    await core.clip.add({
+
+    const state = core.store.getState();
+    let targetTrack = state.tracks.find((t) => t?.type?.toLowerCase() === "effect");
+    let trackId = targetTrack?.id;
+
+    const commands: any[] = [];
+
+    if (!trackId) {
+      trackId = "track_" + nanoid(10);
+      commands.push({
+        id: nanoid(),
+        type: "track.add",
+        payload: { id: trackId, name: "Effects", type: "effect", clipIds: [] },
+      });
+    }
+
+    const playheadTime = state.currentTime || 0;
+    const newClipJson = {
       type: "Effect",
       name: preset.data.label || preset.name,
       effectKey: key,
-      display: { from: 0, to: EFFECT_DURATION_DEFAULT },
+      display: {
+        from: playheadTime,
+        to: Math.min(playheadTime + EFFECT_DURATION_DEFAULT, state.settings.duration),
+      },
       duration: EFFECT_DURATION_DEFAULT,
+    };
+
+    const preparedClip = await core.clip.prepare(newClipJson as any);
+    commands.push({
+      id: nanoid(),
+      type: "clip.add",
+      payload: { clip: preparedClip, trackId },
     });
+
+    core.batch(commands);
   };
 
   return (

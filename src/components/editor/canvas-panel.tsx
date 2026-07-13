@@ -94,15 +94,15 @@ export function CanvasPanel({ onReady }: CanvasPanelProps) {
               name: editorFont.fontFamily,
               url: editorFont.fontUrl,
             },
-          ]),
+          ]).catch((err) => {
+            console.warn("Failed to load editor font, falling back to system fonts:", err);
+          }),
           studioRef.current.ready,
         ]);
-
-        // If there's initial data from the project store, load it now
-
-        onReadyRef.current?.();
       } catch (error) {
         console.error("Failed to initialize studio:", error);
+      } finally {
+        onReadyRef.current?.();
       }
     };
 

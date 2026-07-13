@@ -8,9 +8,18 @@ export interface PresignedUploadConfig {
 
 export interface UploadResult extends PresignedUploadConfig {}
 
+/** Thrown when the server has no cloud storage configured — triggers offline blob fallback. */
+export class LocalModeError extends Error {
+  constructor() {
+    super("local-mode");
+    this.name = "LocalModeError";
+  }
+}
+
 /**
  * Fetches a presigned R2 upload config for the given file name.
  * Returns { presignedUrl, url, fileName, filePath, contentType }.
+ * Throws LocalModeError when the server has no R2 credentials configured.
  */
 export async function getPresignedConfig(fileName: string): Promise<PresignedUploadConfig> {
   const response = await fetch("/api/uploads/presign", {
@@ -20,6 +29,9 @@ export async function getPresignedConfig(fileName: string): Promise<PresignedUpl
   });
 
   if (!response.ok) {
+    let body: any = {};
+    try { body = await response.json(); } catch { /* ignore */ }
+    if (body?.localMode) throw new LocalModeError();
     throw new Error("Failed to get presigned URL");
   }
 

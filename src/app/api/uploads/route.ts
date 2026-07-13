@@ -12,6 +12,13 @@ const r2 = new R2StorageService({
 
 export async function DELETE(request: NextRequest) {
   try {
+    if (!config.r2.bucket || !config.r2.accessKeyId || !config.r2.secretAccessKey || !config.r2.accountId) {
+      return NextResponse.json(
+        { error: "R2 Storage is not configured on the server" },
+        { status: 400 },
+      );
+    }
+
     const { src } = await request.json();
 
     if (!src || typeof src !== "string") {

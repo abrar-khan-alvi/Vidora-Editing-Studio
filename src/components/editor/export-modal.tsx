@@ -21,16 +21,31 @@ import {
   RiVideoLine,
 } from "@remixicon/react";
 import { useStudioStore } from "@/stores/studio-store";
+import { runExport, type ResolutionPreset } from "@/lib/export-pipeline";
 
-export interface ResolutionPreset {
-  value: string;
-  label: string;
-  badge: string;
-  bitrate: number;
-  fps: number;
-  codec: string;
-  format: string;
-}
+// Re-exported so existing consumers (export-popover, export-group) keep their
+// import path; the definitions live in the shared export pipeline module.
+export {
+  VIDEO_CODECS,
+  AUDIO_CODECS,
+  VIDEO_FORMATS,
+  AUDIO_FORMATS,
+  FRAME_RATES,
+  RESOLUTION_GROUPS,
+  RESOLUTION_PRESETS,
+  SAMPLE_RATES,
+  type ResolutionPreset,
+} from "@/lib/export-pipeline";
+import {
+  VIDEO_CODECS,
+  AUDIO_CODECS,
+  VIDEO_FORMATS,
+  AUDIO_FORMATS,
+  FRAME_RATES,
+  RESOLUTION_GROUPS,
+  RESOLUTION_PRESETS,
+  SAMPLE_RATES,
+} from "@/lib/export-pipeline";
 
 interface ExportModalProps {
   open: boolean;
@@ -50,172 +65,6 @@ interface ExportModalProps {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Option definitions (sourced from mediabunny's supported formats/codecs)
-// ---------------------------------------------------------------------------
-
-export const VIDEO_CODECS = [
-  { value: "avc1.640033", label: "H.264 (AVC)", maxHeight: 2160 },
-  { value: "hvc1.1.6.L153.B0", label: "H.265 (HEVC)", maxHeight: 2160 },
-  { value: "vp09.00.51.08", label: "VP9", maxHeight: 2160 },
-];
-
-export const AUDIO_CODECS = [
-  { value: "aac", label: "AAC" },
-  { value: "opus", label: "Opus" },
-  { value: "mp3", label: "MP3" },
-  { value: "flac", label: "FLAC" },
-];
-
-// Which container formats work with which video codecs
-export const VIDEO_FORMATS = [
-  {
-    value: "mp4",
-    label: "MP4",
-    codecs: ["avc1.640033", "hvc1.1.6.L153.B0", "vp09.00.51.08"],
-  },
-  { value: "webm", label: "WebM", codecs: ["vp09.00.51.08"] },
-  {
-    value: "mkv",
-    label: "MKV",
-    codecs: ["avc1.640033", "hvc1.1.6.L153.B0", "vp09.00.51.08"],
-  },
-  { value: "mov", label: "MOV", codecs: ["avc1.640033", "hvc1.1.6.L153.B0"] },
-];
-
-export const AUDIO_FORMATS = [
-  { value: "mp3", label: "MP3" },
-  { value: "wav", label: "WAV" },
-  { value: "flac", label: "FLAC" },
-  { value: "ogg", label: "OGG" },
-];
-
-export const FRAME_RATES = [
-  { value: "23.976", label: "23.976 fps (Film)" },
-  { value: "24", label: "24 fps" },
-  { value: "25", label: "25 fps (PAL)" },
-  { value: "29.97", label: "29.97 fps (NTSC)" },
-  { value: "30", label: "30 fps" },
-  { value: "50", label: "50 fps" },
-  { value: "59.94", label: "59.94 fps (NTSC)" },
-  { value: "60", label: "60 fps" },
-  { value: "15", label: "15 fps" },
-];
-
-export const RESOLUTION_GROUPS: { group: string; items: ResolutionPreset[] }[] = [
-  {
-    group: "Standard",
-    items: [
-      {
-        value: "1280x720",
-        label: "HD",
-        badge: "720p",
-        bitrate: 7_000_000,
-        fps: 30,
-        codec: "avc1.640033",
-        format: "mp4",
-      },
-      {
-        value: "1920x1080",
-        label: "Full HD",
-        badge: "1080p",
-        bitrate: 12_000_000,
-        fps: 30,
-        codec: "avc1.640033",
-        format: "mp4",
-      },
-      {
-        value: "2560x1440",
-        label: "2K Quad HD",
-        badge: "1440p",
-        bitrate: 24_000_000,
-        fps: 30,
-        codec: "vp09.00.51.08",
-        format: "mp4",
-      },
-      {
-        value: "3840x2160",
-        label: "4K Ultra HD",
-        badge: "2160p",
-        bitrate: 64_000_000,
-        fps: 30,
-        codec: "vp09.00.51.08",
-        format: "mp4",
-      },
-    ],
-  },
-  {
-    group: "Social Media",
-    items: [
-      {
-        value: "1080x1920",
-        label: "YouTube Shorts",
-        badge: "1080p",
-        bitrate: 12_000_000,
-        fps: 30,
-        codec: "avc1.640033",
-        format: "mp4",
-      },
-      {
-        value: "3840x2160",
-        label: "YouTube 4K",
-        badge: "2160p",
-        bitrate: 64_000_000,
-        fps: 30,
-        codec: "vp09.00.51.08",
-        format: "mp4",
-      },
-      {
-        value: "1080x1920",
-        label: "Instagram Reels",
-        badge: "1080p",
-        bitrate: 12_000_000,
-        fps: 30,
-        codec: "avc1.640033",
-        format: "mp4",
-      },
-      {
-        value: "1080x1920",
-        label: "TikTok",
-        badge: "1080p",
-        bitrate: 12_000_000,
-        fps: 30,
-        codec: "avc1.640033",
-        format: "mp4",
-      },
-    ],
-  },
-  {
-    group: "Web",
-    items: [
-      {
-        value: "1280x720",
-        label: "HD",
-        badge: "720p",
-        bitrate: 5_000_000,
-        fps: 30,
-        codec: "vp09.00.51.08",
-        format: "webm",
-      },
-      {
-        value: "1920x1080",
-        label: "Full HD",
-        badge: "1080p",
-        bitrate: 8_000_000,
-        fps: 30,
-        codec: "vp09.00.51.08",
-        format: "webm",
-      },
-    ],
-  },
-];
-
-export const RESOLUTION_PRESETS = RESOLUTION_GROUPS.flatMap((g) => g.items);
-
-export const SAMPLE_RATES = [
-  { value: "44100", label: "44.1 kHz" },
-  { value: "48000", label: "48 kHz" },
-];
 
 // ---------------------------------------------------------------------------
 // Shared UI primitives
@@ -230,47 +79,6 @@ export function Row({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-// ---------------------------------------------------------------------------
-// Utility: freeze the editor render loop during export so the main thread is
-// fully available to the encoder. Replaces window.requestAnimationFrame with a
-// version that queues callbacks instead of running them — identical to what the
-// browser does naturally when the tab is backgrounded (where export runs ~2×
-// faster). Returns a restore function that must be called when export finishes.
-// ---------------------------------------------------------------------------
-
-function suppressRenderLoop(): () => void {
-  const originalRAF = window.requestAnimationFrame.bind(window);
-  const originalCAF = window.cancelAnimationFrame.bind(window);
-  const queued = new Map<number, FrameRequestCallback>();
-  let idCounter = 0x70000000;
-
-  // DOM types mark rAF/cAF as readonly; one typed cast is required.
-  const win = window as Window & {
-    requestAnimationFrame: (cb: FrameRequestCallback) => number;
-    cancelAnimationFrame: (id: number) => void;
-  };
-
-  win.requestAnimationFrame = (cb) => {
-    const id = ++idCounter;
-    queued.set(id, cb);
-    return id;
-  };
-  win.cancelAnimationFrame = (id) => {
-    // Only handle IDs in our range. Pre-suppression IDs (< 0x70000000)
-    // may be stale/invalid - don't try to cancel them with original RAF.
-    if (id >= 0x70000000) {
-      queued.delete(id);
-    }
-    // Silently ignore cancel for IDs outside our range (pre-suppression)
-  };
-
-  return () => {
-    win.requestAnimationFrame = originalRAF;
-    win.cancelAnimationFrame = originalCAF;
-    queued.forEach((cb) => originalRAF(cb));
-    queued.clear();
-  };
-}
 
 export function ExportModal({
   open,
@@ -355,7 +163,13 @@ export function ExportModal({
 
   const resetState = () => {
     if (exportCombinator) {
-      exportCombinator.destroy();
+      // Cancels an in-flight export; runExport also destroys the compositor
+      // in its finally, so this may be a second destroy — tolerate it.
+      try {
+        exportCombinator.destroy();
+      } catch {
+        /* already destroyed */
+      }
       setExportCombinator(null);
     }
     if (exportBlobUrl) {
@@ -432,14 +246,6 @@ export function ExportModal({
   const startExport = async (targetPreset?: ResolutionPreset) => {
     if (!studio) return;
 
-    // Pause interactive playback/rendering while exporting to avoid
-    // competing with the compositor on the main thread. This mirrors
-    // the behavior you see when the tab is backgrounded, where the
-    // editor render loop is throttled and export runs faster.
-    const wasPlaying = studio.getIsPlaying();
-
-    const restoreRAF = suppressRenderLoop();
-
     setStep("exporting");
     setIsExporting(true);
     setExportProgress(0);
@@ -447,82 +253,39 @@ export function ExportModal({
     setExportStartTime(Date.now());
 
     try {
-      if (wasPlaying) studio.pause();
-      studio.suspendRendering();
-
-      const json = studio.exportToJSON();
-      if (!json.clips || Object.keys(json.clips).length === 0)
-        throw new Error("No clips to export");
-
-      const settings = json.settings || {};
-      const resolvedPreset = targetPreset || RESOLUTION_PRESETS.find((r) => r.label === resolution);
-      const activeQuality = targetPreset ? String(targetPreset.bitrate) : quality;
-      const activeFps = targetPreset ? String(targetPreset.fps) : fps;
-      const activeFormat = targetPreset ? targetPreset.format : format;
-      const activeCodec = targetPreset ? targetPreset.codec : videoCodec;
-
-      // Determine export dimensions, respecting project aspect ratio
-      const projectWidth = settings.width || studioOpts.width || 1920;
-      const projectHeight = settings.height || studioOpts.height || 1080;
-      const isProjectPortrait = projectHeight > projectWidth;
-
-      let exportWidth: number;
-      let exportHeight: number;
-
-      if (resolvedPreset?.value?.includes("x")) {
-        const [presetW, presetH] = resolvedPreset.value.split("x").map(Number);
-        const isPresetPortrait = presetH > presetW;
-
-        // Swap dimensions if preset orientation doesn't match project orientation
-        if (isProjectPortrait !== isPresetPortrait) {
-          exportWidth = presetH;
-          exportHeight = presetW;
-        } else {
-          exportWidth = presetW;
-          exportHeight = presetH;
-        }
-      } else {
-        exportWidth = projectWidth;
-        exportHeight = projectHeight;
-      }
-      const compositorOptions: any = {
-        width: includeVideo ? exportWidth : 0,
-        height: includeVideo ? exportHeight : 0,
-        fps: Number(activeFps),
-        backgroundColor: settings.backgroundColor || "#000000",
-        format: activeFormat,
-        videoCodec: includeVideo ? activeCodec : undefined,
-        bitrate: Number(activeQuality),
-        audio: includeAudio ? true : false,
-        audioCodec: includeAudio ? audioCodec : undefined,
-        audioSampleRate: includeAudio ? Number(audioSampleRate) : undefined,
-        prioritizeSpeed: true,
-      };
-
-      const com = new Compositor(compositorOptions);
-      if (includeVideo) await com.initPixiApp();
-      setExportCombinator(com);
-
       // Throttle progress state updates to avoid React work competing
       // with encoding on the main thread. Using startTransition marks these
       // updates as non-urgent so React can defer them when the encoder needs CPU.
       let lastProgress = 0;
       let lastUpdateAt = 0;
-      com.on("export:progress", (v) => {
-        lastProgress = v;
-        const now = Date.now();
-        if (v === 1 || now - lastUpdateAt > 500) {
-          lastUpdateAt = now;
-          startTransition(() => {
-            setExportProgress(lastProgress);
-          });
-        }
+
+      const { blobUrl } = await runExport({
+        studio,
+        settings: {
+          includeVideo,
+          videoCodec,
+          quality,
+          format,
+          fps,
+          resolution,
+          includeAudio,
+          audioCodec,
+          audioSampleRate,
+        },
+        targetPreset,
+        onCompositor: setExportCombinator,
+        onProgress: (v) => {
+          lastProgress = v;
+          const now = Date.now();
+          if (v === 1 || now - lastUpdateAt > 500) {
+            lastUpdateAt = now;
+            startTransition(() => {
+              setExportProgress(lastProgress);
+            });
+          }
+        },
       });
 
-      await com.loadFromJSON(json);
-      const stream = com.output();
-      const blob = await new Response(stream).blob();
-      const blobUrl = URL.createObjectURL(blob);
       setExportBlobUrl(blobUrl);
       setIsExporting(false);
 
@@ -536,10 +299,6 @@ export function ExportModal({
       alert("Failed to export: " + (error as Error).message);
       setIsExporting(false);
       setStep("advanced");
-    } finally {
-      restoreRAF();
-      studio.resumeRendering();
-      if (wasPlaying) studio.play().catch(() => undefined);
     }
   };
 

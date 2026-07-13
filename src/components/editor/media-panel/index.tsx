@@ -3,19 +3,13 @@
 import { TabBar } from "./tabbar";
 import { useMediaPanelStore, type Tab } from "./store";
 import PanelAssets from "./panel/assets";
-import PanelEffect from "./panel/effects";
-import PanelTransition from "./panel/transition";
 import PanelText from "./panel/text";
 import PanelCaptions from "./panel/captions";
-import PanelElements from "./panel/elements";
 
 const viewMap: Record<Tab, React.ReactNode> = {
   assets: <PanelAssets showHeader={false} />,
   text: <PanelText />,
   captions: <PanelCaptions />,
-  transitions: <PanelTransition />,
-  effects: <PanelEffect />,
-  elements: <PanelElements />,
 };
 
 export function MediaPanel() {

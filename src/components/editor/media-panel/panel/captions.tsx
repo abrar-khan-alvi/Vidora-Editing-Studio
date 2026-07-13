@@ -171,7 +171,7 @@ export default function PanelCaptions() {
       const trackCommand = {
         id: nanoid(),
         type: "track.add",
-        payload: { id: trackId, name: "Captions", type: "caption", config: captionTrackConfig },
+        payload: { id: trackId, name: "Captions", type: "caption", config: captionTrackConfig, clipIds: [] },
       };
 
       if (clipsToAdd.length > 0) {
@@ -194,6 +194,100 @@ export default function PanelCaptions() {
     }
   };
 
+  const handleManualCaptions = async () => {
+    const fontName = "Bangers-Regular";
+    const fontUrl = "https://fonts.gstatic.com/s/poppins/v15/pxiByp8kv8JHgFVrLCz7V1tvFP-KUEg.ttf";
+
+    try {
+      await fontManager.addFont({
+        name: fontName,
+        url: fontUrl,
+      });
+
+      const state = core.store.getState();
+      const settings = state.settings;
+      const playheadTime = state.currentTime || 0;
+
+      // Look for existing caption track
+      let targetTrack = state.tracks.find((t) => t?.type === "caption");
+      let trackId = targetTrack?.id;
+
+      const commands: any[] = [];
+
+      if (!trackId) {
+        trackId = "track_" + nanoid(10);
+        const captionTrackConfig = {
+          captions: {
+            style: {
+              fontSize: 80,
+              fontFamily: fontName,
+              fontWeight: "700",
+              fontStyle: "normal",
+              color: "#ffffff",
+              align: "center",
+              fontUrl: fontUrl,
+              stroke: { color: "#000000", width: 4 },
+              shadow: { color: "#000000", alpha: 0.5, blur: 4, offsetX: 2, offsetY: 2 },
+            },
+            colors: {
+              active: { color: "#ffffff", background: "#FF5700" },
+              future: { color: "#ffffff" },
+              keyword: { color: "#ffffff", preserveAfterSpoken: true },
+            },
+            positioning: {
+              videoWidth: settings.width,
+              videoHeight: settings.height,
+            },
+            wordsPerLine: "multiple" as const,
+          },
+        };
+        commands.push({
+          id: nanoid(),
+          type: "track.add",
+          payload: { id: trackId, name: "Captions", type: "caption", config: captionTrackConfig, clipIds: [] },
+        });
+      }
+
+      // Add a 3-second empty caption clip at playhead time
+      const captionDurationUs = 3_000_000; // 3 seconds in microseconds
+      const captionWidth = Math.ceil(settings.width * 0.6);
+      const captionHeight = 100;
+      const captionBottomPadding = 450;
+
+      const newClipJson = {
+        type: "Caption",
+        timing: {
+          display: {
+            from: playheadTime,
+            to: Math.min(playheadTime + captionDurationUs, settings.duration),
+          },
+        },
+        left: (settings.width - captionWidth) / 2,
+        top: settings.height - captionBottomPadding,
+        width: captionWidth,
+        height: captionHeight,
+        text: "New Caption",
+        caption: {
+          words: [
+            { text: "New", from: 0, to: 1.5 },
+            { text: "Caption", from: 1.5, to: 3.0 },
+          ],
+        },
+      };
+
+      const preparedClip = await core.clip.prepare(newClipJson as any);
+      commands.push({
+        id: nanoid(),
+        type: "clip.add",
+        payload: { clip: preparedClip, trackId },
+      });
+
+      core.batch(commands);
+    } catch (error) {
+      Log.error("Failed to add manual caption:", error);
+    }
+  };
+
   function normalizeWordTimings(words: any[]) {
     let currentTime = 0;
     return words.map((word, i) => {
@@ -213,7 +307,7 @@ export default function PanelCaptions() {
     const clip = state.clips[id];
     if (!clip) return;
 
-    const track = state.tracks.find((t) => t.clipIds.includes(id));
+    const track = state.tracks.find((t) => t?.clipIds?.includes(id));
     if (!track) return;
     const trackId = track.id;
 
@@ -318,7 +412,7 @@ export default function PanelCaptions() {
     const clip = state.clips[id];
     if (!clip) return;
 
-    const track = state.tracks.find((t) => t.clipIds.includes(id));
+    const track = state.tracks.find((t) => t?.clipIds?.includes(id));
     if (!track) return;
 
     if (!fullUpdate) {
@@ -421,13 +515,13 @@ export default function PanelCaptions() {
               <div className="flex flex-col">
                 {captionItems.map((item) => (
                   <CaptionItem
-                    key={item.id}
-                    item={item}
-                    isActive={item.id === activeCaptionId}
-                    onUpdate={(text, fullUpdate) => handleUpdateCaption(item.id, text, fullUpdate)}
-                    onSplit={(pos, text) => handleSplitCaption(item.id, pos, text)}
-                    onDelete={() => handleDeleteCaption(item.id)}
-                    onSeek={() => handleSeek(item.timing.display.from)}
+                     key={item.id}
+                     item={item}
+                     isActive={item.id === activeCaptionId}
+                     onUpdate={(text, fullUpdate) => handleUpdateCaption(item.id, text, fullUpdate)}
+                     onSplit={(pos, text) => handleSplitCaption(item.id, pos, text)}
+                     onDelete={() => handleDeleteCaption(item.id)}
+                     onSeek={() => handleSeek(item.timing.display.from)}
                   />
                 ))}
               </div>
@@ -451,7 +545,7 @@ export default function PanelCaptions() {
               </span>
             </Button>
 
-            <Button variant="outline" disabled className="justify-start">
+            <Button onClick={handleManualCaptions} variant="outline" className="justify-start">
               <RiKeyboardLine className="size-4 shrink-0" />
               <span className="text-xs font-medium">Manual Captions</span>
             </Button>

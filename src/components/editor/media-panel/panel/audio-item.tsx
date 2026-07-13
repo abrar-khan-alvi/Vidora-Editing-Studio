@@ -20,7 +20,10 @@ export const AudioItem = ({
 
   useEffect(() => {
     if (isPlaying) {
-      audioRef.current?.play();
+      const playPromise = audioRef.current?.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {});
+      }
     } else {
       audioRef.current?.pause();
       if (audioRef.current) {

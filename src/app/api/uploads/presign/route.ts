@@ -18,6 +18,13 @@ const r2 = new R2StorageService({
 
 export async function POST(request: NextRequest) {
   try {
+    if (!config.r2.bucket || !config.r2.accessKeyId || !config.r2.secretAccessKey || !config.r2.accountId) {
+      return NextResponse.json(
+        { error: "R2 Storage is not configured on the server", localMode: true },
+        { status: 400 },
+      );
+    }
+
     const body: PresignRequest = await request.json();
     const { userId = "mockuser", fileNames } = body;
 

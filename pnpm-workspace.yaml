@@ -1,0 +1,2 @@
+patchedDependencies:
+  '@openvideo/engine-pixi@1.3.2': patches/@openvideo__engine-pixi@1.3.2.patch

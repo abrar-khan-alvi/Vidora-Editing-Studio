@@ -79,7 +79,9 @@ class Audio extends Trimmable {
     this.ry = TIMELINE_ITEM_BORDER_RADIUS;
     this.objectCaching = false;
     this.initOffscreenCanvas();
-    this.initialize();
+    this.initialize().catch((err) => {
+      console.warn("Caught unhandled rejection in Audio init:", err);
+    });
   }
 
   // Update the _render method to handle the visible portion
@@ -119,10 +121,15 @@ class Audio extends Trimmable {
   }
 
   private async initialize() {
-    const audio = await OpenVideoAudio.fromUrl(this.src);
-    await audio.ready;
-    const [chan0] = audio.getPCMData();
-    this.pcmData = chan0;
+    try {
+      const audio = await OpenVideoAudio.fromUrl(this.src);
+      await audio.ready;
+      const [chan0] = audio.getPCMData();
+      this.pcmData = chan0;
+    } catch (e) {
+      console.warn("Failed to load audio waveform for timeline item:", e);
+      this.pcmData = new Float32Array(100);
+    }
     this.bars = this.getBars() as any;
     this.canvas?.requestRenderAll();
     this.onScrollChange({ scrollLeft: 0 });
@@ -131,7 +138,9 @@ class Audio extends Trimmable {
   public setSrc(src: string) {
     this.src = src;
     this.initOffscreenCanvas();
-    this.initialize();
+    this.initialize().catch((err) => {
+      console.warn("Caught unhandled rejection in Audio setSrc:", err);
+    });
     this.setCoords();
     this.canvas?.requestRenderAll();
   }

@@ -14,7 +14,7 @@ import {
 } from "@remixicon/react";
 import { create } from "zustand";
 
-export type Tab = "assets" | "text" | "captions" | "effects" | "transitions" | "elements";
+export type Tab = "assets" | "text" | "captions";
 
 export const tabs: {
   [key in Tab]: {
@@ -37,21 +37,6 @@ export const tabs: {
     icon: RiClosedCaptioningLine,
     activeIcon: RiClosedCaptioningFill,
     label: "Captions",
-  },
-  transitions: {
-    icon: RiGitMergeLine,
-    activeIcon: RiGitMergeFill,
-    label: "Transitions",
-  },
-  effects: {
-    icon: RiColorFilterLine,
-    activeIcon: RiColorFilterFill,
-    label: "Effects",
-  },
-  elements: {
-    icon: RiShapesLine,
-    activeIcon: RiShapesFill,
-    label: "Elements",
   },
 };
 

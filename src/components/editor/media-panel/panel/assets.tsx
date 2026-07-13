@@ -34,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useProjectStore } from "@/stores/project-store";
 import { useAssetsStore, type ProjectFile } from "@/stores/assets-store";
+import { isOpfsSrc, loadFromOpfs, deleteFromOpfs } from "@/lib/opfs-storage";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -53,6 +54,8 @@ interface VisualAsset {
   id: string;
   type: MediaType;
   src: string;
+  persistSrc?: string | null;
+  proxySrc?: string | null;
   thumbnailSrc?: string | null;
   name: string;
   width?: number;
@@ -116,6 +119,12 @@ function buildDraggableData(asset: VisualAsset) {
   return {
     type: typeMap[asset.type],
     src: asset.src,
+    // Carried through drag-and-drop so the drop handler can mint a fresh
+    // memory-backed URL from OPFS (session object URLs can go stale).
+    ...(asset.persistSrc && { persistSrc: asset.persistSrc }),
+    // Seek-friendly preview proxy — becomes the clip src; the original is
+    // recorded in metadata.originalSrc and swapped back in at export time.
+    ...(asset.proxySrc && { proxySrc: asset.proxySrc }),
     name: asset.name,
     ...(asset.width && { width: asset.width }),
     ...(asset.height && { height: asset.height }),
@@ -227,7 +236,12 @@ function AssetCard({
                     src={asset.src}
                     className="w-full h-full object-cover pointer-events-none"
                     muted
-                    onMouseOver={(e) => (e.currentTarget as HTMLVideoElement).play()}
+                    onMouseOver={(e) => {
+                      const playPromise = (e.currentTarget as HTMLVideoElement).play();
+                      if (playPromise !== undefined) {
+                        playPromise.catch(() => {});
+                      }
+                    }}
                     onMouseOut={(e) => {
                       (e.currentTarget as HTMLVideoElement).pause();
                       (e.currentTarget as HTMLVideoElement).currentTime = 0;
@@ -463,24 +477,57 @@ export default function PanelAssets({ showHeader = true }: PanelAssetsProps) {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  // Load files from localStorage
+  // Load files from localStorage. Local-mode uploads are stored with an
+  // opfs:// src that must be resolved to a fresh object URL each session;
+  // legacy blob: entries are dead after a reload and get pruned.
   useEffect(() => {
-    if (activeSpaceId) {
-      const stored = localStorage.getItem(`ov_assets_${activeSpaceId}`);
-      if (stored) {
+    if (!activeSpaceId) return;
+    let cancelled = false;
+
+    (async () => {
+      const localKey = `ov_assets_${activeSpaceId}`;
+      const stored = localStorage.getItem(localKey);
+      if (!stored) {
+        setFiles([]);
+      } else {
         try {
           const parsed = JSON.parse(stored);
-          setFiles(parsed);
+          const validAssets = Array.isArray(parsed)
+            ? parsed.filter((item: any) => item && item.src && !item.src.startsWith("blob:"))
+            : [];
+          localStorage.setItem(localKey, JSON.stringify(validAssets));
+
+          const resolvedAssets = await Promise.all(
+            validAssets.map(async (item: any) => {
+              const src = isOpfsSrc(item.src) ? await loadFromOpfs(item.src) : item.src;
+              if (!src) return null; // OPFS file gone (storage cleared)
+              const thumbnailSrc = isOpfsSrc(item.thumbnailSrc)
+                ? await loadFromOpfs(item.thumbnailSrc)
+                : item.thumbnailSrc;
+              return {
+                ...item,
+                src,
+                thumbnailSrc,
+                persistSrc: isOpfsSrc(item.src) ? item.src : null,
+              };
+            }),
+          );
+          if (cancelled) return;
+          setFiles(resolvedAssets.filter(Boolean));
         } catch (e) {
           console.error("Failed to parse local assets", e);
-          setFiles([]);
+          if (!cancelled) setFiles([]);
         }
-      } else {
-        setFiles([]);
       }
-      setAssetsStoreLoading(false);
-      setIsLoaded(true);
-    }
+      if (!cancelled) {
+        setAssetsStoreLoading(false);
+        setIsLoaded(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeSpaceId, setFiles, setAssetsStoreLoading]);
 
   // Load uploads on mount
@@ -507,12 +554,19 @@ export default function PanelAssets({ showHeader = true }: PanelAssetsProps) {
           : Promise.resolve(),
       ];
 
-      // Remove from localStorage
+      // Remove from localStorage (and OPFS for local-mode uploads).
+      // The stored entry keeps the opfs:// src even though the in-memory
+      // file has a resolved object URL, so read it from localStorage.
       const localKey = `ov_assets_${activeSpaceId}`;
       const stored = localStorage.getItem(localKey);
       if (stored) {
         try {
           const existingAssets = JSON.parse(stored);
+          const storedAsset = existingAssets.find((a: any) => a.id === id);
+          if (isOpfsSrc(storedAsset?.src)) promises.push(deleteFromOpfs(storedAsset.src));
+          if (isOpfsSrc(storedAsset?.thumbnailSrc))
+            promises.push(deleteFromOpfs(storedAsset.thumbnailSrc));
+          if (isOpfsSrc(storedAsset?.proxySrc)) promises.push(deleteFromOpfs(storedAsset.proxySrc));
           const filtered = existingAssets.filter((a: any) => a.id !== id);
           localStorage.setItem(localKey, JSON.stringify(filtered));
         } catch (e) {
@@ -543,17 +597,37 @@ export default function PanelAssets({ showHeader = true }: PanelAssetsProps) {
 
   // Add item to canvas on click
   const addItemToCanvas = async (asset: VisualAsset) => {
+    if (!asset.src) return; // still uploading — no playable source yet
     try {
+      // Mint a fresh memory-backed URL from OPFS when available — the
+      // panel's session URL may have gone stale (see loadFromOpfs docs).
+      let playableSrc = asset.src;
+      if (asset.persistSrc) {
+        playableSrc = (await loadFromOpfs(asset.persistSrc)) ?? asset.src;
+      }
+
+      // Prefer the seek-friendly proxy for editing; remember the original so
+      // the export pipeline can swap it back in for full-quality output.
+      let originalSrc: string | null = null;
+      if (asset.proxySrc) {
+        const proxyUrl = await loadFromOpfs(asset.proxySrc);
+        if (proxyUrl) {
+          originalSrc = asset.persistSrc ?? asset.src;
+          playableSrc = proxyUrl;
+        }
+      }
+
       const typeMap: Record<MediaType, string> = { image: "Image", video: "Video", audio: "Audio" };
       const clipData: any = {
         type: typeMap[asset.type] as any,
-        src: asset.src,
+        src: playableSrc,
         name: asset.name,
       };
 
-      if (asset.type === "video" && asset.thumbnailSrc) {
+      if (asset.type === "video" && (asset.thumbnailSrc || originalSrc)) {
         clipData.metadata = {
-          previewUrl: asset.thumbnailSrc,
+          ...(asset.thumbnailSrc && { previewUrl: asset.thumbnailSrc }),
+          ...(originalSrc && { originalSrc }),
         };
       }
 
@@ -582,6 +656,8 @@ export default function PanelAssets({ showHeader = true }: PanelAssetsProps) {
     id: f.id,
     type: f.type,
     src: f.src,
+    persistSrc: f.persistSrc,
+    proxySrc: f.proxySrc,
     thumbnailSrc: f.thumbnailSrc,
     name: f.name,
     duration: f.duration,
@@ -853,8 +929,11 @@ export default function PanelAssets({ showHeader = true }: PanelAssetsProps) {
                   </div>
                 </div>
 
-                {/* Status */}
-                {selectedAsset.indexingStatus !== "completed" && (
+                {/* Status — only shown while indexing is actually running or failed.
+                    Local uploads have indexingStatus: null (no indexing backend). */}
+                {(selectedAsset.indexingStatus === "pending" ||
+                  selectedAsset.indexingStatus === "processing" ||
+                  selectedAsset.indexingStatus === "failed") && (
                   <Alert
                     variant={selectedAsset.indexingStatus === "failed" ? "destructive" : "default"}
                     className={

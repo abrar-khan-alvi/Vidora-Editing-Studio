@@ -89,13 +89,7 @@ const Header = ({
         }}
       >
         <div
-          style={{
-            height: 36,
-            width: "100%",
-            display: "grid",
-            gridTemplateColumns: "1fr 260px 1fr",
-            alignItems: "center",
-          }}
+          className="h-9 w-full grid items-center grid-cols-[auto_minmax(0,1fr)_auto] lg:grid-cols-[1fr_260px_1fr]"
         >
           <div className="flex px-2">
             <Button
@@ -119,14 +113,14 @@ const Header = ({
               disabled={!selectedClip || isLocked}
               onClick={handleDuplicate}
               variant={"ghost"}
-              className="flex items-center gap-1 px-2"
+              className="hidden sm:flex items-center gap-1 px-2"
             >
               <RiFileCopyLine size={15} />
             </Button>
             <Button
               onClick={handleSnapshot}
               variant={"ghost"}
-              className="flex items-center gap-1 px-2"
+              className="hidden sm:flex items-center gap-1 px-2"
             >
               <RiCameraLine size={15} />
             </Button>
@@ -247,8 +241,8 @@ const ZoomControl = ({
   };
 
   return (
-    <div className="flex items-center justify-end select-none px-4">
-      <div className="flex items-center rounded-md px-1.5 py-0.5 gap-1 h-8">
+    <div className="flex items-center justify-end select-none px-1 sm:px-4">
+      <div className="flex items-center rounded-md px-0.5 sm:px-1.5 py-0.5 gap-0.5 sm:gap-1 h-8">
         <Button onClick={onZoomOutClick} variant={"ghost"} size={"icon"}>
           <RiSubtractLine size={14} />
         </Button>

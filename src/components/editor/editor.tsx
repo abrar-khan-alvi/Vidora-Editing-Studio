@@ -16,6 +16,9 @@ import { IProject } from "@openvideo/core";
 import { useProjectStore } from "@/stores/project-store";
 import Header from "./header";
 import { data } from "./data";
+import { MobileToolbar } from "./mobile-toolbar";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useIsCompact, useIsMobile } from "@/hooks/use-mobile";
 
 export default function Editor({
   initialDesign,
@@ -24,18 +27,34 @@ export default function Editor({
   initialDesign?: IProject;
 }) {
   const resetProject = useProjectStore((state) => state.resetProject);
-  const { editorMode, showLeftPanel, showRightPanel, showTimeline } = usePanelStore();
+  const {
+    editorMode,
+    showLeftPanel,
+    showRightPanel,
+    showTimeline,
+    mediaSheetOpen,
+    propertiesSheetOpen,
+    setMediaSheetOpen,
+    setPropertiesSheetOpen,
+  } = usePanelStore();
+  const isCompact = useIsCompact();
+  const isMobile = useIsMobile();
 
   const [isReady, setIsReady] = useState(false);
   const [isWebCodecsSupported, setIsWebCodecsSupported] = useState(true);
 
-  // Load default template on mount
+  // Leaving compact mode closes the overlay sheets — the panels render inline.
+  useEffect(() => {
+    if (!isCompact) {
+      setMediaSheetOpen(false);
+      setPropertiesSheetOpen(false);
+    }
+  }, [isCompact, setMediaSheetOpen, setPropertiesSheetOpen]);
+
+  // Start with empty project on mount
   useEffect(() => {
     resetProject();
     core.project.new();
-    setTimeout(() => {
-      core.project.import(data);
-    }, 500);
   }, [resetProject]);
 
   useEffect(() => {
@@ -64,10 +83,12 @@ export default function Editor({
       {/* Header — full width */}
       <Header />
 
-      {/* Main content row: left sidebar + center + right sidebar */}
+      {/* Main content row: left sidebar + center + right sidebar.
+          In compact (mobile/tablet) mode the side panels render as overlay
+          sheets instead, and the timeline gets a fixed height. */}
       <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
-        {/* Left Sidebar: Media Panel */}
-        {showLeftPanel && (
+        {/* Left Sidebar: Media Panel (desktop only) */}
+        {!isCompact && showLeftPanel && (
           <Resizable orientation="horizontal" initialSize={300} min={180} max={520} direction="right">
             <MediaPanel />
           </Resizable>
@@ -78,14 +99,19 @@ export default function Editor({
           <div className="flex-1 min-h-0 overflow-visible">
             <CanvasPanel onReady={() => setIsReady(true)} />
           </div>
-          {showTimeline && (
-            <Resizable orientation="vertical" initialSize={260} min={200} max={500} direction="up">
-              <Timeline />
-            </Resizable>
-          )}
+          {showTimeline &&
+            (isCompact ? (
+              <div className={`shrink-0 w-full ${isMobile ? "h-[190px]" : "h-[230px]"}`}>
+                <Timeline />
+              </div>
+            ) : (
+              <Resizable orientation="vertical" initialSize={260} min={200} max={500} direction="up">
+                <Timeline />
+              </Resizable>
+            ))}
         </div>
 
-        {showRightPanel && (
+        {!isCompact && showRightPanel && (
           <Resizable
             orientation="horizontal"
             initialSize={280}
@@ -99,6 +125,36 @@ export default function Editor({
         )}
       </div>
 
+      {/* Compact mode: bottom toolbar + panels as overlay sheets */}
+      {isCompact && <MobileToolbar />}
+      {isCompact && (
+        <>
+          <Sheet open={mediaSheetOpen} onOpenChange={setMediaSheetOpen}>
+            <SheetContent
+              side="left"
+              aria-describedby={undefined}
+              className="w-[85vw] max-w-[380px] p-0 gap-0"
+            >
+              <SheetTitle className="sr-only">Media</SheetTitle>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <MediaPanel />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <Sheet open={propertiesSheetOpen} onOpenChange={setPropertiesSheetOpen}>
+            <SheetContent
+              side="right"
+              aria-describedby={undefined}
+              className="w-[85vw] max-w-[380px] p-0 gap-0"
+            >
+              <SheetTitle className="sr-only">Properties</SheetTitle>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <RightPanel />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </>
+      )}
 
       {/* Floating Controls like Caption / Animation pickers */}
       <FloatingControl />

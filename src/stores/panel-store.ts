@@ -14,6 +14,9 @@ interface PanelState {
   showLeftPanel: boolean;
   showRightPanel: boolean;
   showTimeline: boolean;
+  /** Compact-layout (mobile/tablet) overlay sheets for the side panels. */
+  mediaSheetOpen: boolean;
+  propertiesSheetOpen: boolean;
 
   setToolsPanel: (size: number) => void;
   setCopilotPanel: (size: number) => void;
@@ -26,6 +29,8 @@ interface PanelState {
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   toggleTimeline: () => void;
+  setMediaSheetOpen: (open: boolean) => void;
+  setPropertiesSheetOpen: (open: boolean) => void;
   resetLayout: () => void;
 }
 
@@ -41,6 +46,8 @@ export const usePanelStore = create<PanelState>((set) => ({
   showLeftPanel: true,
   showRightPanel: true,
   showTimeline: true,
+  mediaSheetOpen: false,
+  propertiesSheetOpen: false,
 
   setToolsPanel: (size) => set({ toolsPanel: size }),
   setPreviewPanel: (size) => set({ previewPanel: size }),
@@ -53,6 +60,8 @@ export const usePanelStore = create<PanelState>((set) => ({
   toggleLeftPanel: () => set((state) => ({ showLeftPanel: !state.showLeftPanel })),
   toggleRightPanel: () => set((state) => ({ showRightPanel: !state.showRightPanel })),
   toggleTimeline: () => set((state) => ({ showTimeline: !state.showTimeline })),
+  setMediaSheetOpen: (open) => set({ mediaSheetOpen: open }),
+  setPropertiesSheetOpen: (open) => set({ propertiesSheetOpen: open }),
   resetLayout: () => set({ showLeftPanel: true, showRightPanel: true, showTimeline: true }),
 }));
 

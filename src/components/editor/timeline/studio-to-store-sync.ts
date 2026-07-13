@@ -2,6 +2,7 @@ import { clipToJSON, type IClip as StudioClip, Studio, jsonToClip } from "@openv
 import CanvasTimeline, { TIMELINE_SEEK } from "@openvideo/timeline";
 import { IClip } from "@/types/timeline";
 import { core, projectStore } from "@/lib/project";
+import { loadFromOpfs } from "@/lib/opfs-storage";
 import { useStudioStore } from "@/stores/studio-store";
 import { nanoid } from "nanoid";
 
@@ -41,8 +42,31 @@ export const addStudioSync = (studio: Studio, timeline: CanvasTimeline): (() => 
 
   // Timeline drop events → route through core.clip.add
   const handleAddClip = async ({ payload, options }: any) => {
-    console.log("timeline add event: ", { payload, options });
-    await core.clip.add(payload, options);
+    try {
+      // Local-mode assets carry a persistent opfs:// reference; mint a fresh
+      // memory-backed URL from it in case the dragged session URL went stale.
+      if (payload?.persistSrc) {
+        const fresh = await loadFromOpfs(payload.persistSrc);
+        if (fresh) payload.src = fresh;
+      }
+      // Prefer the seek-friendly preview proxy; record the original so the
+      // export pipeline swaps it back in for full-quality output.
+      if (payload?.proxySrc) {
+        const proxyUrl = await loadFromOpfs(payload.proxySrc);
+        if (proxyUrl) {
+          payload.metadata = {
+            ...payload.metadata,
+            originalSrc: payload.persistSrc ?? payload.src,
+          };
+          payload.src = proxyUrl;
+        }
+      }
+      delete payload?.persistSrc;
+      delete payload?.proxySrc;
+      await core.clip.add(payload, options);
+    } catch (e) {
+      console.error("Failed to add clip from timeline drop:", e);
+    }
   };
 
   timeline.emitter.on("add:video", handleAddClip);

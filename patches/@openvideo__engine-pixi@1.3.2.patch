@@ -1,0 +1,54 @@
+diff --git a/dist/index-DXt_Sx7A.js b/dist/index-DXt_Sx7A.js
+index 64b7a988f7723190d68b4e2c99262986f7959992..9c1625b52044615f268b42d0c2e127ac98945ea5 100644
+--- a/dist/index-DXt_Sx7A.js
++++ b/dist/index-DXt_Sx7A.js
+@@ -68318,7 +68318,7 @@ class Cn extends Ft {
+   async createPlaybackElement() {
+     if (await this.ready, !this.src || this.src.trim() === "")
+       throw new Error("Audio requires a source URL for playback");
+-    const e = this.src.startsWith("blob:") ? this.src : void 0, t = document.createElement("audio");
++    const e = void 0, t = document.createElement("audio");
+     return t.crossOrigin = "anonymous", t.autoplay = !1, t.preload = "auto", t.loop = this.opts.loop || !1, t.src = this.src, await new Promise((i, n) => {
+       const s = () => {
+         t.removeEventListener("loadeddata", s), t.removeEventListener("error", o), t.pause(), t.currentTime = 0, i();
+@@ -89640,16 +89640,20 @@ class ere {
+       return;
+     }
+     for (const n of e) {
+-      const s = n.path.split("/").filter(Boolean);
+-      if (s[0] === "clips") {
+-        const o = s[1];
+-        n.op === "add" && !s[2] ? await this.handleAddClip(n.value) : n.op === "remove" && !s[2] ? await this.handleRemoveClip(o) : n.op === "update" && await this.handleUpdateClip(o, s.slice(2), n.value);
+-      }
+-      if (s[0] === "tracks" && await this.studio.setTracks(this.core.store.getState().tracks), s[0] === "settings") {
+-        const o = this.core.store.getState().settings;
+-        this.studio.setSize(o.width, o.height);
++      try {
++        const s = n.path.split("/").filter(Boolean);
++        if (s[0] === "clips") {
++          const o = s[1];
++          n.op === "add" && !s[2] ? await this.handleAddClip(n.value) : n.op === "remove" && !s[2] ? await this.handleRemoveClip(o) : n.op === "update" && await this.handleUpdateClip(o, s.slice(2), n.value);
++        }
++        if (s[0] === "tracks" && await this.studio.setTracks(this.core.store.getState().tracks), s[0] === "settings") {
++          const o = this.core.store.getState().settings;
++          this.studio.setSize(o.width, o.height);
++        }
++        s[0] === "selectedIds" && this.syncSelectionToStudio(this.core.store.getState().selectedIds);
++      } catch (o) {
++        console.error("[StudioBridge] Failed to apply patch", n.path, o);
+       }
+-      s[0] === "selectedIds" && this.syncSelectionToStudio(this.core.store.getState().selectedIds);
+     }
+   }
+   getTrackCaptionConfig(e) {
+@@ -91637,7 +91641,9 @@ class nre {
+   reconcileTracks() {
+     const e = new Set(this.clips.map((t) => t.id));
+     for (let t = this.tracks.length - 1; t >= 0; t--) {
+-      const i = this.tracks[t], n = i.clipIds.filter((s) => e.has(s));
++      const i = this.tracks[t];
++      if (!i) continue;
++      const n = (i.clipIds || []).filter((s) => e.has(s));
+       n.length !== i.clipIds.length && (i.clipIds = n), i.clipIds.length === 0 && (this.tracks.splice(t, 1), this.studio.isRestoring || this.studio.emit("track:removed", { trackId: i.id }));
+     }
+     this.tracks.length === 0 && !this.studio.isRestoring && this.studio.emit("track:order-changed", { tracks: this.tracks });

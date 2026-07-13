@@ -6,6 +6,10 @@ export interface ProjectFile {
   name: string;
   type: "image" | "video" | "audio";
   src: string;
+  /** Persistent opfs:// source for local-mode uploads; used to mint fresh playable URLs. */
+  persistSrc?: string | null;
+  /** Persistent opfs:// source of the seek-friendly preview proxy (videos only). */
+  proxySrc?: string | null;
   thumbnailSrc?: string | null;
   width?: number;
   height?: number;

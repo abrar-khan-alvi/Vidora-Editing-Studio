@@ -108,11 +108,11 @@ export default function Header() {
 
   return (
     <div className="h-13 border-b shrink-0">
-      <div className="h-full grid grid-cols-3 items-center px-4">
+      <div className="h-full grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-2 px-2 sm:px-4">
         {/* Left Column: Home, Menu, View */}
         <div className="flex items-center justify-start gap-0.5">
           {/* Home Icon */}
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
             <RiHomeLine className="size-4.5" />
             <span className="sr-only">Home</span>
           </Button>
@@ -170,10 +170,11 @@ export default function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* View Menu with Dropdown */}
+          {/* View Menu with Dropdown — layout toggles only apply to the
+              desktop layout, so hide it in the compact one */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="text-xs flex items-center gap-1">
+              <Button variant="ghost" className="text-xs hidden lg:flex items-center gap-1">
                 <RiLayout3Line className="size-4" />
                 <span>View</span>
                 <RiArrowDownSLine className="size-3.5" />
@@ -203,11 +204,11 @@ export default function Header() {
 
 
         {/* Center Column: Project Space & Details */}
-        <div className="flex items-center justify-center gap-1.5 text-xs font-semibold">
-          <RiLockLine size={14} className=" shrink-0" />
-          <span className=" font-medium">Personal</span>
-          <span className="px-1">/</span>
-          <span className="text-foreground truncate max-w-[200px]">
+        <div className="flex items-center justify-center gap-1.5 text-xs font-semibold min-w-0">
+          <RiLockLine size={14} className="shrink-0 hidden sm:block" />
+          <span className="font-medium hidden sm:block">Personal</span>
+          <span className="px-1 hidden sm:block">/</span>
+          <span className="text-foreground truncate max-w-[110px] sm:max-w-[200px]">
             {projectName || "Untitled video"}
           </span>
           <RiArrowDownSLine size={12} className="shrink-0 ml-0.5" />

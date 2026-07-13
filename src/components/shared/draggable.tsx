@@ -20,6 +20,11 @@ const Draggable: React.FC<DraggableProps> = ({
   const handleDragStart = (e: React.DragEvent<HTMLElement>) => {
     setIsDragging(true);
     e.dataTransfer.setDragImage(new Image(), 0, 0); // Hides default preview
+    // When the drag starts on a natively-draggable child (e.g. an <img>
+    // asset preview), the browser pre-fills text/plain, text/uri-list, etc.
+    // The timeline identifies the payload via dataTransfer.types[0] (values
+    // are unreadable during dragover), so those entries must go first.
+    e.dataTransfer.clearData();
     e.dataTransfer.setData(JSON.stringify(data), JSON.stringify(data));
     e.dataTransfer.effectAllowed = "move";
 

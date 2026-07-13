@@ -86,7 +86,6 @@ class Video extends Trimmable {
 
   constructor(props: VideoProps) {
     super(props);
-    console.warn("Props", props);
     this.id = props.id;
     this.tScale = props.tScale;
     this.objectCaching = false;
@@ -114,15 +113,18 @@ class Video extends Trimmable {
   }
 
   private initOffscreenCanvas() {
+    const w = Math.max(1, Math.floor(this.width));
+    const h = Math.max(1, Math.floor(this.height));
+
     if (!this.offscreenCanvas) {
-      this.offscreenCanvas = new OffscreenCanvas(this.width, this.height);
+      this.offscreenCanvas = new OffscreenCanvas(w, h);
       this.offscreenCtx = this.offscreenCanvas.getContext("2d");
     }
 
     // Resize if dimensions changed
-    if (this.offscreenCanvas.width !== this.width || this.offscreenCanvas.height !== this.height) {
-      this.offscreenCanvas.width = this.width;
-      this.offscreenCanvas.height = this.height;
+    if (this.offscreenCanvas.width !== w || this.offscreenCanvas.height !== h) {
+      this.offscreenCanvas.width = w;
+      this.offscreenCanvas.height = h;
       this.isDirty = true;
     }
   }
@@ -190,7 +192,7 @@ class Video extends Trimmable {
     return new Promise<void>((resolve) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.src = `${fallbackThumbnail}?t=${Date.now()}`;
+      img.src = fallbackThumbnail.startsWith("blob:") ? fallbackThumbnail : `${fallbackThumbnail}?t=${Date.now()}`;
       img.onload = () => {
         // Create a temporary canvas to resize the image
         const canvas = document.createElement("canvas");
