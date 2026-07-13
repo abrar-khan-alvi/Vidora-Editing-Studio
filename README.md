@@ -99,3 +99,5 @@ OpenVideo is available under a dual-license model:
 
 
 For commercial licensing, custom integrations, or enterprise support, contact us at [cloud@openvideo.dev](mailto:cloud@openvideo.dev).
+
+# Vidora-Editing-Studio
