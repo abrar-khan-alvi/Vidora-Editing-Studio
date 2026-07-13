@@ -31,6 +31,7 @@ import {
 import { RiLockLine, RiArrowDownSLine } from "@remixicon/react";
 import { core } from "@/lib/project";
 import { data } from "./data";
+import { ProxyStatusIndicator } from "./proxy-status-indicator";
 
 export default function Header() {
   const { projectName, resetProject, setProjectName } = useProjectStore();
@@ -216,6 +217,9 @@ export default function Header() {
 
         {/* Right Column: Aspect Ratio and Export Button */}
         <div className="flex items-center justify-end gap-2">
+          {/* Background proxy-optimization status (self-hiding) */}
+          <ProxyStatusIndicator />
+
           {/* Taskbar Button */}
           <TaskbarPopover>
             <RiArchiveDrawerLine className="size-4" />

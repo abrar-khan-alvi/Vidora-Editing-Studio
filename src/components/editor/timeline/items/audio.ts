@@ -2,6 +2,14 @@ import { Control, Trimmable, TrimmableProps, timeUsToUnits } from "@openvideo/ti
 import { Audio as OpenVideoAudio } from "@openvideo/engine-pixi";
 import { IMetadata, ITrim } from "@openvideo/timeline";
 import { createAudioControls } from "../controls";
+import { isOpfsSrc, loadFromOpfs } from "@/lib/opfs-storage";
+
+// Decoded waveforms are cached by source URL. Splitting or duplicating a clip
+// creates new timeline items that share the same src; reusing the cached PCM
+// means the new piece renders its waveform instantly and, crucially, avoids a
+// redundant re-fetch of the source (which was leaking a "Failed to fetch"
+// rejection out of the engine's audio loader on split).
+const pcmCache = new Map<string, Float32Array>();
 import {
   SECONDARY_FONT,
   TIMELINE_SELECTED_BORDER_COLOR,
@@ -60,6 +68,7 @@ class Audio extends Trimmable {
   private isDirty = true;
   declare playbackRate: number;
   public bars: any[] = [];
+  public metadata?: AudioProps["metadata"];
 
   static createControls(): { controls: Record<string, Control> } {
     return { controls: createAudioControls() };
@@ -75,6 +84,7 @@ class Audio extends Trimmable {
     this.duration = props.duration;
     this.fill = "#00849a";
     this.src = props.src;
+    this.metadata = props.metadata;
     this.rx = TIMELINE_ITEM_BORDER_RADIUS;
     this.ry = TIMELINE_ITEM_BORDER_RADIUS;
     this.objectCaching = false;
@@ -121,18 +131,66 @@ class Audio extends Trimmable {
   }
 
   private async initialize() {
-    try {
-      const audio = await OpenVideoAudio.fromUrl(this.src);
-      await audio.ready;
-      const [chan0] = audio.getPCMData();
-      this.pcmData = chan0;
-    } catch (e) {
-      console.warn("Failed to load audio waveform for timeline item:", e);
-      this.pcmData = new Float32Array(100);
+    const cached = this.src ? pcmCache.get(this.src) : undefined;
+    if (cached) {
+      // Reuse the already-decoded waveform (e.g. the other half of a split).
+      this.pcmData = cached;
+    } else {
+      // Try the session src first, then the durable original (opfs://) recorded
+      // in metadata — the session blob: URL can be revoked, but the original
+      // can always be re-resolved.
+      const durable = (this.metadata as any)?.originalSrc as string | undefined;
+      const candidates = [...new Set([this.src, durable].filter((s): s is string => !!s))];
+
+      let pcm: Float32Array | null = null;
+      for (const cand of candidates) {
+        pcm = await this.decodePcm(cand);
+        if (pcm) break;
+      }
+
+      if (pcm) {
+        this.pcmData = pcm;
+        if (this.src) pcmCache.set(this.src, pcm);
+      } else {
+        console.warn("Failed to load audio waveform for timeline item");
+        this.pcmData = new Float32Array(100);
+      }
     }
     this.bars = this.getBars() as any;
     this.canvas?.requestRenderAll();
     this.onScrollChange({ scrollLeft: 0 });
+  }
+
+  /**
+   * Fetches + decodes a source into PCM. Resolves opfs:// first, pre-fetches the
+   * bytes ourselves (so a bad source fails HERE rather than leaking an unhandled
+   * rejection out of the engine loader), and hands the engine a guaranteed-good
+   * same-origin blob URL. Returns null on any failure so the caller can try the
+   * next candidate.
+   */
+  private async decodePcm(src: string): Promise<Float32Array | null> {
+    let objectUrl: string | null = null;
+    try {
+      let url = src;
+      if (isOpfsSrc(url)) {
+        const resolved = await loadFromOpfs(url);
+        if (!resolved) return null;
+        url = resolved;
+      }
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      objectUrl = URL.createObjectURL(blob);
+
+      const audio = await OpenVideoAudio.fromUrl(objectUrl);
+      await audio.ready;
+      const [chan0] = audio.getPCMData();
+      return chan0 ?? null;
+    } catch {
+      return null;
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    }
   }
 
   public setSrc(src: string) {

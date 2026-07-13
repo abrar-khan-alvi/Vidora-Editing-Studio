@@ -303,7 +303,10 @@ const Timeline = () => {
 
   const onClickRuler = (units: number) => {
     const timeUs = unitsToTimeUs(units, scale.zoom);
-    projectStore.getState().seek(timeUs);
+    // Guard against a non-finite result (e.g. units/zoom not settled yet):
+    // seeking to NaN corrupts currentTime and renders "NaN:NaN".
+    if (!Number.isFinite(timeUs)) return;
+    projectStore.getState().seek(Math.max(0, timeUs));
   };
 
   const onRulerScroll = (newScrollLeft: number) => {

@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { RiMusic2Line, RiPauseLine, RiPlayLine } from "@remixicon/react";
 import { useRef, useState, useEffect } from "react";
 import Draggable from "@/components/shared/draggable";
+import { proxiedMediaSrc } from "@/lib/media-proxy";
 
 export const AudioItem = ({
   item,
@@ -53,7 +54,8 @@ export const AudioItem = ({
     <Draggable
       data={{
         type: "Audio",
-        src: item.url,
+        // Same-origin proxy so the dropped clip's waveform + export can read it.
+        src: proxiedMediaSrc(item.url),
         name: item.text,
       }}
       renderCustomPreview={

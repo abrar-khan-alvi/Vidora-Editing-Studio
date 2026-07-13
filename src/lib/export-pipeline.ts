@@ -1,4 +1,4 @@
-import { Compositor, fontManager, type Studio } from "@openvideo/engine-pixi";
+import { Compositor, fontManager, Log, type Studio } from "@openvideo/engine-pixi";
 import { editorFont } from "@/components/editor/constants";
 import { projectStore } from "@/lib/project";
 import { isOpfsSrc, loadFromOpfs } from "@/lib/opfs-storage";
@@ -237,6 +237,26 @@ function suppressRenderLoop(): () => void {
 // Shared export pipeline
 // ---------------------------------------------------------------------------
 
+/**
+ * Cheap reachability probe for a media src before the compositor tries to load
+ * it. blob: URLs are always same-document fetchable; for everything else we do a
+ * tiny 1-byte range request so we don't download the whole asset just to check.
+ */
+async function isFetchableSrc(src: string): Promise<boolean> {
+  if (!src) return false;
+  try {
+    // Remote URLs: a tiny range request avoids downloading the whole asset.
+    // blob:/same-origin: a plain GET (also cheap) — importantly we *do* test
+    // blob: URLs, since a revoked/stale one would otherwise pass silently and
+    // fail the whole export inside loadFromJSON.
+    const isRemote = /^https?:\/\//i.test(src);
+    const res = await fetch(src, isRemote ? { headers: { Range: "bytes=0-0" } } : {});
+    return res.ok || res.status === 206;
+  } catch {
+    return false;
+  }
+}
+
 export interface RunExportParams {
   studio: Studio;
   settings: ExportSettings;
@@ -329,11 +349,43 @@ export async function runExport({
         }
 
         // Clips edited against a preview proxy carry the original source in
-        // metadata.originalSrc — swap it back in for full-quality export.
+        // metadata.originalSrc — swap it back in for full-quality export. If the
+        // original can't be fetched (expired remote URL, cleared OPFS file,
+        // CORS), keep the preview src (which is local/known-good) so the whole
+        // export doesn't fail — better a proxy-quality render than none.
         const originalSrc = (coreClip as any).metadata?.originalSrc;
         if (originalSrc) {
-          const url = isOpfsSrc(originalSrc) ? await loadFromOpfs(originalSrc) : originalSrc;
-          if (url) existing.src = url;
+          const resolved = isOpfsSrc(originalSrc) ? await loadFromOpfs(originalSrc) : originalSrc;
+          if (resolved && (await isFetchableSrc(resolved))) {
+            existing.src = resolved;
+          } else {
+            Log.warn(
+              `Export: original source not fetchable for clip ${id}; using preview src instead.`,
+            );
+          }
+        }
+
+        // Never hand the compositor an unfetchable opfs:// src.
+        if (isOpfsSrc(existing.src)) {
+          const resolved = await loadFromOpfs(existing.src);
+          if (resolved) existing.src = resolved;
+        }
+
+        // Absolutize same-origin/relative URLs (e.g. the /api/media-proxy src).
+        // The compositor may fetch from a worker whose base URL differs, where a
+        // relative path wouldn't resolve.
+        if (
+          typeof existing.src === "string" &&
+          existing.src.startsWith("/") &&
+          typeof window !== "undefined"
+        ) {
+          existing.src = new URL(existing.src, window.location.origin).href;
+        }
+
+        // Final guard: if even the (resolved) src isn't fetchable, surface which
+        // clip is the culprit rather than failing opaquely inside loadFromJSON.
+        if (existing.src && !(await isFetchableSrc(existing.src))) {
+          Log.error(`Export: clip ${id} has an unfetchable src`, existing.src);
         }
       }
     }
@@ -468,6 +520,17 @@ export async function runExport({
 
     if (onProgress) {
       compositor.on("export:progress", onProgress);
+    }
+
+    // Diagnostic: dump the final source of every clip about to be loaded, so a
+    // "Failed to fetch" inside loadFromJSON can be traced to a specific clip.
+    try {
+      const srcDump = Object.entries(json.clips ?? {}).map(
+        ([id, c]: [string, any]) => `${c.type}:${id} -> ${String(c.src ?? "").slice(0, 100)}`,
+      );
+      console.warn("[export] clip sources:", srcDump);
+    } catch {
+      /* diagnostics only */
     }
 
     await compositor.loadFromJSON(json);

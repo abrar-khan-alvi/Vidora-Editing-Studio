@@ -31,6 +31,60 @@ interface PexelsVideo {
   }[];
 }
 
+type PexelsFile = PexelsVideo["video_files"][number];
+
+/**
+ * CapCut-style proxy for stock clips without any transcoding: Pexels already
+ * ships multiple renditions, so we edit against a lightweight SD/small file and
+ * remember the largest (HD) one for full-quality export.
+ */
+const PREVIEW_MAX_WIDTH = 1280;
+
+function pickPreviewFile(files: PexelsFile[]): PexelsFile | undefined {
+  const usable = files.filter((f) => f.link);
+  if (usable.length === 0) return undefined;
+  const byWidthAsc = [...usable].sort((a, b) => (a.width || 0) - (b.width || 0));
+  // Largest rendition that still stays within the preview cap; else the smallest.
+  const withinCap = byWidthAsc.filter((f) => (f.width || 0) <= PREVIEW_MAX_WIDTH);
+  return withinCap.length ? withinCap[withinCap.length - 1] : byWidthAsc[0];
+}
+
+function pickExportFile(files: PexelsFile[]): PexelsFile | undefined {
+  const usable = files.filter((f) => f.link);
+  if (usable.length === 0) return undefined;
+  return [...usable].sort((a, b) => (b.width || 0) - (a.width || 0))[0];
+}
+
+/** Builds the clip payload: preview file as src, HD file as metadata.originalSrc. */
+function buildVideoClipData(asset: PexelsVideo) {
+  const preview = pickPreviewFile(asset.video_files);
+  const original = pickExportFile(asset.video_files);
+  if (!preview) return null;
+  const useProxy = !!original && original.link !== preview.link;
+  // Pexels reports duration in whole seconds; guard against a missing/0 value
+  // so we never feed NaN timing to the engine (which would surface as a NaN
+  // playhead position). Default to 5s if the API omits it.
+  const durationUs = (asset.duration && asset.duration > 0 ? asset.duration : 5) * 1e6;
+  return {
+    type: "Video" as const,
+    src: preview.link,
+    name: `Video by ${asset.user.name}`,
+    width: asset.width,
+    height: asset.height,
+    // Keep `duration` alongside display/trim — the timeline drag-drop path
+    // sizes the dropped clip from it.
+    timing: {
+      duration: durationUs,
+      display: { from: 0, to: durationUs },
+      trim: { from: 0, to: durationUs },
+    },
+    metadata: {
+      previewUrl: asset.image,
+      ...(useProxy && { originalSrc: original!.link }),
+    },
+  };
+}
+
 export default function PanelVideos() {
   const [searchQuery, setSearchQuery] = useState("");
   const [videos, setVideos] = useState<PexelsVideo[]>([]);
@@ -73,26 +127,10 @@ export default function PanelVideos() {
 
   const addItemToCanvas = async (asset: PexelsVideo) => {
     try {
-      const videoFile = asset.video_files.find((f) => f.quality === "hd") || asset.video_files[0];
-      if (!videoFile) throw new Error("No video file found");
+      const clipData = buildVideoClipData(asset);
+      if (!clipData) throw new Error("No video file found");
       // Use the new Core command-based API to add a video clip
-      await core.clip.add(
-        {
-          type: "Video",
-          src: videoFile.link,
-          name: `Video by ${asset.user.name}`,
-          width: asset.width,
-          height: asset.height,
-          timing: {
-            display: { from: 0, to: asset.duration * 1e6 },
-            trim: { from: 0, to: asset.duration * 1e6 },
-          },
-          metadata: {
-            previewUrl: asset.image,
-          },
-        },
-        { objectFit: "contain" },
-      );
+      await core.clip.add(clipData, { objectFit: "contain" });
     } catch (error) {
       Log.error(`Failed to add video:`, error);
     }
@@ -130,22 +168,17 @@ export default function PanelVideos() {
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
             {videos.map((video) => {
-              const videoFile =
-                video.video_files.find((f) => f.quality === "hd") || video.video_files[0];
+              const dragData = buildVideoClipData(video);
               return (
                 <Draggable
                   key={video.id}
-                  data={{
-                    type: "Video",
-                    src: videoFile?.link,
-                    name: `Video by ${video.user.name}`,
-                    width: video.width,
-                    height: video.height,
-                    timing: { duration: video.duration * 1e6 },
-                    metadata: {
-                      previewUrl: video.image,
-                    },
-                  }}
+                  data={
+                    dragData ?? {
+                      type: "Video",
+                      src: video.video_files[0]?.link,
+                      name: `Video by ${video.user.name}`,
+                    }
+                  }
                   renderCustomPreview={
                     <div className="w-20 aspect-video overflow-hidden shadow-xl border-2 border-primary">
                       <img src={video.image} className="w-full h-full object-cover" />

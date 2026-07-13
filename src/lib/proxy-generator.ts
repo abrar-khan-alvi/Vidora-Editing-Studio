@@ -7,75 +7,87 @@
  * into a seek-friendly proxy (dense keyframes, capped resolution) that the
  * editor uses for preview. The original file is swapped back in at export
  * time, so output quality is untouched.
+ *
+ * The actual transcode runs in a Web Worker (see proxy-worker.ts) so the
+ * editor UI never janks, and requests are serialized (concurrency 1) so
+ * multiple uploads don't thrash WebCodecs. If the worker can't be created in
+ * the current environment, we transparently fall back to the main thread.
  */
 
-/** Long-edge cap for proxy resolution — preview only, keeps decode cheap. */
-const PROXY_MAX_LONG_EDGE = 1280;
-/** Keyframe every 0.5s makes any seek land at most ~15 frames away. */
-const PROXY_KEYFRAME_INTERVAL_S = 0.5;
+import { transcodeToProxy, type ProxyProgress } from "./proxy-transcode";
+import type { ProxyWorkerRequest, ProxyWorkerResponse } from "./proxy-worker";
 
-export async function generateVideoProxy(
-  file: File | Blob,
-  onProgress?: (progress: number) => void,
-): Promise<Blob | null> {
+let worker: Worker | null = null;
+let workerBroken = false;
+let nextId = 1;
+
+interface PendingJob {
+  resolve: (blob: Blob | null) => void;
+  reject: (err: unknown) => void;
+  onProgress?: ProxyProgress;
+}
+const pending = new Map<number, PendingJob>();
+
+function getWorker(): Worker | null {
+  if (workerBroken || typeof Worker === "undefined") return null;
+  if (worker) return worker;
   try {
-    const {
-      ALL_FORMATS,
-      Input,
-      BlobSource,
-      Output,
-      BufferTarget,
-      Mp4OutputFormat,
-      Conversion,
-      QUALITY_MEDIUM,
-    } = await import("mediabunny");
-
-    const input = new Input({
-      formats: ALL_FORMATS,
-      source: new BlobSource(file),
-    });
-
-    const videoTrack = await input.getPrimaryVideoTrack();
-    if (!videoTrack) return null;
-
-    // Cap the long edge; never upscale.
-    const w = videoTrack.displayWidth;
-    const h = videoTrack.displayHeight;
-    const longEdge = Math.max(w, h);
-    const scale = longEdge > PROXY_MAX_LONG_EDGE ? PROXY_MAX_LONG_EDGE / longEdge : 1;
-    // Even dimensions required by most encoders.
-    const targetWidth = Math.round((w * scale) / 2) * 2;
-
-    const output = new Output({
-      format: new Mp4OutputFormat({ fastStart: "in-memory" }),
-      target: new BufferTarget(),
-    });
-
-    const conversion = await Conversion.init({
-      input,
-      output,
-      video: {
-        width: targetWidth,
-        codec: "avc",
-        bitrate: QUALITY_MEDIUM,
-        keyFrameInterval: PROXY_KEYFRAME_INTERVAL_S,
-        forceTranscode: true,
-      },
-    });
-
-    if (!conversion.isValid) return null;
-
-    if (onProgress) {
-      conversion.onProgress = (p) => onProgress(p);
-    }
-
-    await conversion.execute();
-
-    const buffer = (output.target as InstanceType<typeof BufferTarget>).buffer;
-    if (!buffer) return null;
-    return new Blob([buffer], { type: "video/mp4" });
-  } catch (e) {
-    console.warn("Proxy generation failed (original will be used for preview):", e);
+    worker = new Worker(new URL("./proxy-worker.ts", import.meta.url), { type: "module" });
+    worker.onmessage = (e: MessageEvent<ProxyWorkerResponse>) => {
+      const msg = e.data;
+      const job = pending.get(msg.id);
+      if (!job) return;
+      if (msg.type === "progress") {
+        job.onProgress?.(msg.progress);
+        return;
+      }
+      pending.delete(msg.id);
+      if (msg.type === "error") {
+        job.reject(new Error(msg.message));
+        return;
+      }
+      job.resolve(msg.buffer ? new Blob([msg.buffer], { type: "video/mp4" }) : null);
+    };
+    worker.onerror = () => {
+      // Worker failed to load/run — mark broken and reject in-flight jobs so
+      // they fall back to the main thread.
+      workerBroken = true;
+      for (const [, job] of pending) job.reject(new Error("proxy worker error"));
+      pending.clear();
+      worker?.terminate();
+      worker = null;
+    };
+    return worker;
+  } catch {
+    workerBroken = true;
     return null;
   }
+}
+
+function runOnce(file: File | Blob, onProgress?: ProxyProgress): Promise<Blob | null> {
+  const w = getWorker();
+  if (!w) return transcodeToProxy(file, onProgress);
+
+  return new Promise<Blob | null>((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject, onProgress });
+    w.postMessage({ id, file } satisfies ProxyWorkerRequest);
+  }).catch(() => {
+    // Worker errored for this job — retry on the main thread so the user
+    // still gets a proxy.
+    return transcodeToProxy(file, onProgress);
+  });
+}
+
+// Serialize proxy generation so concurrent uploads don't compete for WebCodecs.
+let queue: Promise<unknown> = Promise.resolve();
+
+export function generateVideoProxy(
+  file: File | Blob,
+  onProgress?: ProxyProgress,
+): Promise<Blob | null> {
+  const run = queue.then(() => runOnce(file, onProgress));
+  // Keep the chain alive regardless of individual job outcomes.
+  queue = run.catch(() => undefined);
+  return run;
 }

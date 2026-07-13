@@ -4,6 +4,7 @@ import { useStore } from "zustand";
 import { projectStore, core } from "@/lib/project";
 import CanvasTimeline from "@/components/editor/timeline/items/timeline";
 import { nanoid, AnyClip } from "@openvideo/core";
+import { togglePlayback } from "@/lib/playback";
 
 interface UseEditorHotkeysProps {
   timelineCanvas: CanvasTimeline | null;
@@ -17,10 +18,10 @@ export function useEditorHotkeys({ timelineCanvas, setZoomLevel }: UseEditorHotk
   const fps = useStore(projectStore, (s) => s.settings.fps);
 
   useEffect(() => {
-    // Play/Pause
+    // Play/Pause (rewinds to start when parked at the end)
     hotkeys("space", (event, handler) => {
       event.preventDefault();
-      core.playback.toggle();
+      togglePlayback();
     });
 
     // Split

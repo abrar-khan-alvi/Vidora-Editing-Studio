@@ -21,10 +21,13 @@ const Playhead = ({ scrollLeft, scale }: { scrollLeft: number; scale: ITimelineS
   const [isDragging, setIsDragging] = useState(false);
 
   // Determine which time to use for visual positioning
-  const displayTimeUs = localTimeUs !== null ? localTimeUs : currentTimeUs;
+  const displayTimeUsRaw = localTimeUs !== null ? localTimeUs : currentTimeUs;
+  const displayTimeUs = Number.isFinite(displayTimeUsRaw) ? displayTimeUsRaw : 0;
 
   const position = useMemo(() => {
-    return timeUsToUnits(displayTimeUs, scale.zoom) - scrollLeft;
+    const p = timeUsToUnits(displayTimeUs, scale.zoom) - scrollLeft;
+    // Never emit a NaN into the `left` style below.
+    return Number.isFinite(p) ? p : 0;
   }, [displayTimeUs, scale.zoom, scrollLeft]);
 
   const [mounted, setMounted] = useState(false);
@@ -42,6 +45,7 @@ const Playhead = ({ scrollLeft, scale }: { scrollLeft: number; scale: ITimelineS
       // Calculate new time based on pixel delta
       const deltaTimeUs = unitsToTimeUs(deltaX, scale.zoom);
       const newTimeUs = Math.max(0, dragRef.current.startTimeUs + deltaTimeUs);
+      if (!Number.isFinite(newTimeUs)) return;
 
       // 1. Update local state for INSTANT visual response
       setLocalTimeUs(newTimeUs);
@@ -70,7 +74,8 @@ const Playhead = ({ scrollLeft, scale }: { scrollLeft: number; scale: ITimelineS
     const clientX = (e as any).touches ? (e as any).touches[0].clientX : (e as any).clientX;
 
     // Capture current state at the moment of interaction
-    const startTimeUs = projectStore.getState().currentTime;
+    const cur = projectStore.getState().currentTime;
+    const startTimeUs = Number.isFinite(cur) ? cur : 0;
 
     dragRef.current = {
       isDragging: true,

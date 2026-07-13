@@ -3,8 +3,9 @@
 import { useState, useCallback } from "react";
 import { useAssetsStore, type ProjectFile } from "@/stores/assets-store";
 import { getPresignedConfig, uploadFileWithConfig, LocalModeError } from "@/lib/upload-utils";
-import { saveToOpfs } from "@/lib/opfs-storage";
+import { saveToOpfs, loadFromOpfs } from "@/lib/opfs-storage";
 import { generateVideoProxy } from "@/lib/proxy-generator";
+import { core, projectStore } from "@/lib/project";
 import { generateThumbnail } from "@/lib/thumbnail-generator";
 import { analyzeVideo } from "@/lib/video-analysis";
 
@@ -19,6 +20,38 @@ interface UploadResult {
 interface UseAssetUploadOptions {
   spaceId: string | null;
   onComplete?: () => void;
+}
+
+/**
+ * Rebinds any timeline clips that were added from `assetId` while it was still
+ * playing the heavy original onto the freshly-generated proxy. Clips already on
+ * a proxy (metadata.originalSrc set) are left untouched. Best-effort: failures
+ * just leave the clip on the original, which still plays fine.
+ */
+async function hotSwapClipsToProxy(assetId: string, proxySrc: string): Promise<void> {
+  try {
+    const proxyUrl = await loadFromOpfs(proxySrc);
+    if (!proxyUrl) return;
+
+    const asset = useAssetsStore.getState().getFileById(assetId);
+    const clips = projectStore.getState().clips as Record<string, any>;
+
+    for (const clip of Object.values(clips)) {
+      if (!clip || clip.metadata?.assetId !== assetId) continue;
+      // Already editing against a proxy — nothing to swap.
+      if (clip.metadata?.originalSrc) continue;
+
+      // Prefer the durable opfs:// source for export; fall back to the clip's
+      // current (session) src.
+      const originalSrc = asset?.persistSrc ?? clip.src;
+      core.clip.update(clip.id, {
+        src: proxyUrl,
+        metadata: { ...clip.metadata, originalSrc },
+      } as any);
+    }
+  } catch (e) {
+    console.warn("Proxy hot-swap failed:", e);
+  }
 }
 
 async function getAudioDuration(file: File): Promise<number | undefined> {
@@ -91,6 +124,12 @@ export function useAssetUpload({ spaceId, onComplete }: UseAssetUploadOptions) {
               localStorage.setItem(localKey, JSON.stringify(assets));
             }
           }
+
+          // Hot-swap: clips added from this asset *before* the proxy existed are
+          // still bound to the heavy original. Rebind them to the fresh proxy so
+          // editing gets light immediately — no reload, no re-add. The original
+          // is preserved in metadata.originalSrc for full-quality export.
+          await hotSwapClipsToProxy(assetId, proxySrc);
         }
       } catch (e) {
         console.warn("Proxy generation failed:", e);

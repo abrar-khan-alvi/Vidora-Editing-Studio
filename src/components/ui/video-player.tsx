@@ -106,7 +106,8 @@ const VideoPlayer = React.forwardRef<HTMLVideoElement, VideoPlayerProps>(
       const el = videoRef.current;
       if (!el) return;
       if (el.paused) {
-        el.play();
+        // play() rejects with AbortError if a pause() interrupts it — ignore.
+        void el.play().catch(() => undefined);
         announce("Playing");
       } else {
         el.pause();

@@ -9,6 +9,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { debounce } from "lodash";
 import { core } from "@/lib/project";
+import { proxiedMediaSrc } from "@/lib/media-proxy";
 
 interface Music {
   id: string;
@@ -74,7 +75,9 @@ export default function PanelMusic() {
     try {
       await core.clip.add({
         type: "Audio",
-        src: url,
+        // Route remote audio through our origin so mediabunny can byte-read it
+        // (needed for the waveform and export); the raw CDN URL is CORS-blocked.
+        src: proxiedMediaSrc(url),
         name: name,
       });
     } catch (error) {

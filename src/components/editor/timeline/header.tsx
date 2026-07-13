@@ -7,6 +7,7 @@ import { core, projectStore } from "@/lib/project";
 import { useStudioStore } from "@/stores/studio-store";
 import { ITimelineScaleState } from "@openvideo/timeline";
 import { getFitZoomLevel } from "../utils/timeline";
+import { playFromStartAware } from "@/lib/playback";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -33,9 +34,13 @@ const Header = ({
   scale: ITimelineScaleState;
   setScale: (scale: ITimelineScaleState) => void;
 }) => {
-  const currentTimeUs = useStore(projectStore, (s) => s.currentTime);
+  const currentTimeUsRaw = useStore(projectStore, (s) => s.currentTime);
   const isPlaying = useStore(projectStore, (s) => s.isPlaying);
-  const durationUs = useStore(projectStore, (s) => s.settings.duration);
+  const durationUsRaw = useStore(projectStore, (s) => s.settings.duration);
+  // Sanitize: a non-finite time from an upstream seek must never reach the DOM
+  // (it renders as "NaN:NaN" and a NaN playhead position).
+  const currentTimeUs = Number.isFinite(currentTimeUsRaw) ? currentTimeUsRaw : 0;
+  const durationUs = Number.isFinite(durationUsRaw) ? durationUsRaw : 0;
   const currentTime = currentTimeUs / 1_000_000;
   const duration = durationUs / 1_000_000;
 
@@ -66,7 +71,9 @@ const Header = ({
     setScale(newScale);
   };
 
-  const handlePlay = () => core.play();
+  // Rewinds to the start when parked at the end, then plays (and swallows the
+  // benign AbortError from an interrupted media play()).
+  const handlePlay = () => playFromStartAware();
   const handlePause = () => core.pause();
   const handleSeek = (time: number) => core.seek(time * 1_000_000);
 

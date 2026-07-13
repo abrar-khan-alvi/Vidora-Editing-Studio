@@ -37,9 +37,11 @@ export const timeToString = ({ time }: { time: number }): string => {
 
 export const getCurrentTime = () => {
   const currentTimeElement = document.getElementById("video-current-time");
-  const currentTimeSeconds = currentTimeElement
+  const parsed = currentTimeElement
     ? Number.parseFloat(currentTimeElement.getAttribute("data-current-time") ?? "0")
     : 0;
+  // Guard against a stale "NaN" attribute so we don't feed NaN back into a seek.
+  const currentTimeSeconds = Number.isFinite(parsed) ? parsed : 0;
   const currentTimeUs = currentTimeSeconds * 1_000_000;
   return currentTimeUs;
 };

@@ -20,6 +20,30 @@ import { useStore } from "zustand";
 import { projectStore, core } from "@/lib/project";
 import { cn } from "@/lib/utils";
 import { nanoid } from "nanoid";
+import { extractAudioForTranscription } from "@/lib/audio-extract";
+import { isOpfsSrc, loadFromOpfs } from "@/lib/opfs-storage";
+
+/**
+ * Resolves a media clip's bytes into a Blob for transcription. Works for local
+ * (blob:/OPFS) and remote (http) sources. Prefers the lighter editing src and
+ * falls back to the original.
+ */
+async function resolveClipBlob(clip: any): Promise<Blob | null> {
+  let src: string | null | undefined = clip?.src || clip?.metadata?.originalSrc;
+  if (!src) return null;
+  try {
+    if (isOpfsSrc(src)) {
+      src = await loadFromOpfs(src);
+      if (!src) return null;
+    }
+    const res = await fetch(src);
+    if (!res.ok) return null;
+    return await res.blob();
+  } catch (e) {
+    Log.error("Failed to resolve clip media bytes:", e);
+    return null;
+  }
+}
 
 export default function PanelCaptions() {
   const clips = useStore(projectStore, (s) => s.clips);
@@ -91,14 +115,26 @@ export default function PanelCaptions() {
 
       for (const mediaClip of mediaItems) {
         try {
-          // 1. Get transcription
-          const audioUrl = (mediaClip as any).src;
-          if (!audioUrl) continue;
+          // 1. Get transcription.
+          // Send audio *bytes* (not a URL) so this works for local/OPFS media
+          // too, and the ElevenLabs key stays server-side. We extract compact
+          // speech audio in the browser first to keep the upload tiny.
+          const mediaBlob = await resolveClipBlob(mediaClip);
+          if (!mediaBlob) {
+            Log.error(`No media bytes for clip ${mediaClip.id}`);
+            continue;
+          }
+
+          const extracted = await extractAudioForTranscription(mediaBlob);
+          const uploadBlob = extracted?.blob ?? mediaBlob;
+          const uploadName = extracted?.fileName ?? "media";
+
+          const form = new FormData();
+          form.append("file", uploadBlob, uploadName);
 
           const transcribeResponse = await fetch("/api/transcribe", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: audioUrl, model: "nova-3" }),
+            body: form,
           });
 
           if (!transcribeResponse.ok) {

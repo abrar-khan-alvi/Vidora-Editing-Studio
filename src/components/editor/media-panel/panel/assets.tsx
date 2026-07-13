@@ -119,6 +119,9 @@ function buildDraggableData(asset: VisualAsset) {
   return {
     type: typeMap[asset.type],
     src: asset.src,
+    // Source asset id — lets a proxy that finishes generating *after* the clip
+    // was added find its clips and hot-swap them (see studio-to-store-sync).
+    assetId: asset.id,
     // Carried through drag-and-drop so the drop handler can mint a fresh
     // memory-backed URL from OPFS (session object URLs can go stale).
     ...(asset.persistSrc && { persistSrc: asset.persistSrc }),
@@ -624,10 +627,17 @@ export default function PanelAssets({ showHeader = true }: PanelAssetsProps) {
         name: asset.name,
       };
 
-      if (asset.type === "video" && (asset.thumbnailSrc || originalSrc)) {
+      if (asset.type === "video" || asset.type === "audio") {
+        // Attach a durable source (persistent opfs://) + asset id so the export
+        // pipeline can re-resolve a fresh URL even if the session blob: src is
+        // later revoked. Audio especially needs this: it has no proxy, so a
+        // revoked blob URL would otherwise leave export with nothing to fetch.
+        const durableOriginalSrc = originalSrc ?? asset.persistSrc ?? null;
         clipData.metadata = {
+          // Always tag the source asset so a late-arriving proxy can hot-swap it.
+          assetId: asset.id,
           ...(asset.thumbnailSrc && { previewUrl: asset.thumbnailSrc }),
-          ...(originalSrc && { originalSrc }),
+          ...(durableOriginalSrc && { originalSrc: durableOriginalSrc }),
         };
       }
 

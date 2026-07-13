@@ -57,6 +57,22 @@ export default function Editor({
     core.project.new();
   }, [resetProject]);
 
+  // Swallow the benign media race that the playback engine can throw when a
+  // play() promise is interrupted by a pause()/seek (e.g. scrubbing while
+  // playing). It originates inside the engine's internal media element, so it
+  // can't be caught at the source; match it narrowly to avoid hiding real bugs.
+  useEffect(() => {
+    const onUnhandledRejection = (e: PromiseRejectionEvent) => {
+      const reason = e.reason as { name?: string; message?: string } | undefined;
+      const message = String(reason?.message ?? e.reason ?? "");
+      if (reason?.name === "AbortError" && message.includes("play()")) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+    return () => window.removeEventListener("unhandledrejection", onUnhandledRejection);
+  }, []);
+
   useEffect(() => {
     const checkSupport = async () => {
       const isSupported = await Compositor.isSupported();

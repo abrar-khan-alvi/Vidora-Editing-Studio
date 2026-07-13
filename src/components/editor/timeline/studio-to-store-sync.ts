@@ -35,7 +35,11 @@ export const addStudioSync = (studio: Studio, timeline: CanvasTimeline): (() => 
 
   // Captures timeline seek events
   const handleTimelineSeek = ({ payload }: any) => {
-    projectStore.getState().seek(payload.time);
+    const time = payload?.time;
+    // Never propagate a non-finite seek into Core — it corrupts currentTime
+    // and surfaces as a "NaN:NaN" timecode / NaN playhead position.
+    if (!Number.isFinite(time)) return;
+    projectStore.getState().seek(Math.max(0, time));
   };
 
   timeline.emitter.on(TIMELINE_SEEK, handleTimelineSeek);
@@ -61,8 +65,19 @@ export const addStudioSync = (studio: Studio, timeline: CanvasTimeline): (() => 
           payload.src = proxyUrl;
         }
       }
+      // Tag the clip with its source asset so a proxy that finishes generating
+      // after the drop can locate and hot-swap it.
+      if (payload?.assetId) {
+        payload.metadata = { ...payload.metadata, assetId: payload.assetId };
+      }
+      // Durable source for audio (and non-proxy media): lets export re-resolve a
+      // fresh URL even if the session blob: src is later revoked.
+      if (payload?.persistSrc && !payload.metadata?.originalSrc) {
+        payload.metadata = { ...payload.metadata, originalSrc: payload.persistSrc };
+      }
       delete payload?.persistSrc;
       delete payload?.proxySrc;
+      delete payload?.assetId;
       await core.clip.add(payload, options);
     } catch (e) {
       console.error("Failed to add clip from timeline drop:", e);

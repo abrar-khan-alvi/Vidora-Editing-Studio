@@ -25,8 +25,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "OpenVideo - Open Source Video Editor",
-    template: "%s | OpenVideo",
+    default: "Vidora Studio - Video Editor",
+    template: "%s | Vidora Studio",
   },
   description:
     "Open-source Video Editor with client-side rendering (WebCodecs). Edit videos directly in your browser.",
@@ -39,21 +39,21 @@ export const metadata: Metadata = {
     "browser video editing",
     "github",
   ],
-  authors: [{ name: "OpenVideo" }],
-  creator: "OpenVideo",
+  authors: [{ name: "Vidora Studio" }],
+  creator: "Vidora Studio",
   metadataBase: new URL("https://openvideo.dev"),
   openGraph: {
-    title: "OpenVideo - Open Source Video Editor",
+    title: "Vidora Studio - Video Editor",
     description:
       "Free, open-source Video Editor with client-side rendering (WebCodecs). Edit videos in your browser.",
     url: "https://openvideo.dev",
-    siteName: "OpenVideo",
+    siteName: "Vidora Studio",
     images: [
       {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "OpenVideo - Video Editor",
+        alt: "Vidora Studio - Video Editor",
       },
     ],
     locale: "en_US",
@@ -61,11 +61,11 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "OpenVideo - Open Source Video Editor",
+    title: "Vidora Studio - Video Editor",
     description:
       "Free, open-source Video Editor with client-side rendering (WebCodecs). Edit videos in your browser.",
     images: ["/og.png"],
-    creator: "@openvideo",
+    creator: "@vidorastudio",
   },
   robots: {
     index: true,
