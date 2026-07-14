@@ -4,9 +4,9 @@
   "private": true,
   "description": "Open-source client-side video editor",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "dev": "node api.js && next dev",
+    "build": "node api.js && next build",
+    "start": "node api.js && next start"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.922.0",
