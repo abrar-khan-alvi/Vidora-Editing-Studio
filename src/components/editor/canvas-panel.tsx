@@ -15,6 +15,7 @@ import { CUSTOM_TRANSITIONS } from "./transition-custom";
 import { CUSTOM_EFFECTS } from "./effect-custom";
 import { useStudioContextMenu, StudioContextMenuProvider } from "./studio-canvas-context-menu";
 import { useResolvedColor } from "@/hooks/use-resolved-color";
+import { usePreviewGestures } from "@/hooks/use-preview-gestures";
 
 const STUDIO_CONFIG = {
   fps: 30,
@@ -47,6 +48,9 @@ export function CanvasPanel({ onReady }: CanvasPanelProps) {
   }, [onReady]);
 
   const { state: contextMenuState, openContextMenu, closeContextMenu } = useStudioContextMenu();
+
+  // Two-finger pinch/rotate/move on the selected clip (touch devices).
+  usePreviewGestures(containerRef);
 
   // Handle dimension changes
   useEffect(() => {
@@ -174,7 +178,7 @@ export function CanvasPanel({ onReady }: CanvasPanelProps) {
     <StudioContextMenuProvider state={contextMenuState} onClose={closeContextMenu}>
       <div
         ref={containerRef}
-        className="h-full w-full flex flex-col min-h-0 min-w-0 bg-card rounded-sm relative"
+        className="h-full w-full flex flex-col min-h-0 min-w-0 bg-card rounded-sm relative touch-none"
       >
         <canvas
           ref={canvasRef}

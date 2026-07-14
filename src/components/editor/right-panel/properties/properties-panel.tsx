@@ -14,9 +14,12 @@ const GROUPED_FONTS = getGroupedFonts();
 
 interface PropertiesPanelContentProps {
   clip: IClip;
+  /** When set, renders only these property sections (mobile drawer shows one
+   *  category at a time). Omitted = render everything (desktop panel). */
+  only?: PropertyKey[];
 }
 
-export function PropertiesPanelContent({ clip }: PropertiesPanelContentProps) {
+export function PropertiesPanelContent({ clip, only }: PropertiesPanelContentProps) {
   const coreClipBase = useStore(projectStore, (s) => (clip?.id ? s.clips[clip.id] : null));
   const coreClip = useEphemeralClip(clip?.id || "", coreClipBase ?? clip) as any;
   const { setFloatingControl } = useLayoutStore();
@@ -61,7 +64,8 @@ export function PropertiesPanelContent({ clip }: PropertiesPanelContentProps) {
   };
 
   // Get properties for this clip type
-  const propertyKeys = getPropertiesForType(clip.type);
+  const allPropertyKeys = getPropertiesForType(clip.type);
+  const propertyKeys = only ? allPropertyKeys.filter((k) => only.includes(k)) : allPropertyKeys;
 
   // Render a single property
   const renderProperty = (key: PropertyKey) => {

@@ -125,7 +125,29 @@ export default function PanelCaptions() {
             continue;
           }
 
-          const extracted = await extractAudioForTranscription(mediaBlob);
+          // Transcribe only the source range this clip actually plays on the
+          // timeline. Split+delete can leave a stale trim.to that still spans
+          // the removed part, so clamp to what the display window consumes —
+          // otherwise captions get generated for deleted footage.
+          const timing: any = (mediaClip as any).timing || {};
+          const rate = timing.playbackRate || 1;
+          const displayFromUs = timing.display?.from ?? 0;
+          const displayToUs = timing.display?.to ?? 0;
+          const displayLenUs = Math.max(0, displayToUs - displayFromUs);
+          const trimFromUs = timing.trim?.from ?? 0;
+          const consumedUs = trimFromUs + displayLenUs * rate;
+          const trimToUs = Math.min(
+            timing.trim?.to > trimFromUs ? timing.trim.to : consumedUs,
+            consumedUs,
+          );
+          const winStartSec = trimFromUs / 1_000_000;
+          const winEndSec = trimToUs / 1_000_000;
+          if (winEndSec <= winStartSec) continue;
+
+          const extracted = await extractAudioForTranscription(mediaBlob, {
+            startSec: winStartSec,
+            endSec: winEndSec,
+          });
           const uploadBlob = extracted?.blob ?? mediaBlob;
           const uploadName = extracted?.fileName ?? "media";
 
@@ -145,7 +167,31 @@ export default function PanelCaptions() {
           const transcriptionData = await transcribeResponse.json();
           if (!transcriptionData) continue;
 
-          const words = transcriptionData.results?.main?.words || transcriptionData.words || [];
+          let words = transcriptionData.results?.main?.words || transcriptionData.words || [];
+
+          // Extraction already sliced the audio to the window (timestamps are
+          // window-relative). If it fell back to the full media, window the
+          // words here instead.
+          if (!extracted) {
+            words = words
+              .filter((w: any) => (w.end ?? 0) > winStartSec && (w.start ?? 0) < winEndSec)
+              .map((w: any) => ({
+                ...w,
+                start: Math.max(0, (w.start ?? 0) - winStartSec),
+                end: Math.min(winEndSec, w.end ?? 0) - winStartSec,
+              }));
+          }
+
+          // Source-seconds → timeline-seconds for speed-adjusted clips.
+          if (rate !== 1) {
+            words = words.map((w: any) => ({
+              ...w,
+              start: (w.start ?? 0) / rate,
+              end: (w.end ?? 0) / rate,
+            }));
+          }
+
+          if (words.length === 0) continue;
 
           const settings = core.store.getState().settings;
           const captionClipsJSON = await generateCaptionClips({
@@ -154,8 +200,11 @@ export default function PanelCaptions() {
             words,
           });
 
-          // 3. Prepare clips
+          // 3. Prepare clips — clamped to the media clip's timeline window.
           for (const json of captionClipsJSON) {
+            const from = json.timing.display.from + displayFromUs;
+            const to = Math.min(json.timing.display.to + displayFromUs, displayToUs || Infinity);
+            if (to <= from) continue;
             const enrichedJson = {
               ...json,
               mediaId: mediaClip.id,
@@ -164,10 +213,7 @@ export default function PanelCaptions() {
                 sourceClipId: mediaClip.id,
               },
               timing: {
-                display: {
-                  from: json.timing.display.from + mediaClip.timing.display.from,
-                  to: json.timing.display.to + mediaClip.timing.display.from,
-                },
+                display: { from, to },
               },
             };
             clipsToAdd.push(enrichedJson);

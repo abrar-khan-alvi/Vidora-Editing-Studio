@@ -21,9 +21,13 @@ export interface ExtractedAudio {
  * Extracts an audio-only WebM/Opus blob from a media file. Returns `null` when
  * the source has no audio track or extraction fails — callers should fall back
  * to sending the original media (Scribe accepts video too).
+ *
+ * When `range` is given, only that slice of the source is extracted (seconds);
+ * timestamps in the result are re-based to 0 at `range.startSec`.
  */
 export async function extractAudioForTranscription(
   file: File | Blob,
+  range?: { startSec: number; endSec: number },
 ): Promise<ExtractedAudio | null> {
   try {
     const {
@@ -58,6 +62,9 @@ export async function extractAudioForTranscription(
         bitrate: QUALITY_LOW,
         forceTranscode: true,
       },
+      ...(range && range.endSec > range.startSec
+        ? { trim: { start: Math.max(0, range.startSec), end: range.endSec } }
+        : {}),
     });
 
     if (!conversion.isValid) return null;

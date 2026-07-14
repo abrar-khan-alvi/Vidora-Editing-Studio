@@ -5,7 +5,16 @@ import { timeUsToUnits, unitsToTimeUs, ITimelineScaleState } from "@openvideo/ti
 import { useTimelineOffsetX } from "../hooks/use-timeline-offset";
 import { cn } from "@/lib/utils";
 
-const Playhead = ({ scrollLeft, scale }: { scrollLeft: number; scale: ITimelineScaleState }) => {
+const Playhead = ({
+  scrollLeft,
+  scale,
+  topOffset = 50,
+}: {
+  scrollLeft: number;
+  scale: ITimelineScaleState;
+  /** Height of the UI above the ruler (the timeline header; 0 in compact mode). */
+  topOffset?: number;
+}) => {
   const currentTimeUs = useStore(projectStore, (s) => s.currentTime);
   const timelineOffsetX = useTimelineOffsetX();
 
@@ -110,9 +119,9 @@ const Playhead = ({ scrollLeft, scale }: { scrollLeft: number; scale: ITimelineS
       style={{
         position: "absolute",
         left: timelineOffsetX + 16 + position,
-        top: 50,
+        top: topOffset,
         width: 1,
-        height: "calc(100% - 50px)",
+        height: `calc(100% - ${topOffset}px)`,
         zIndex: 10,
         cursor: "ew-resize",
         touchAction: "none",

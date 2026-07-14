@@ -21,6 +21,8 @@ import { TIMELINE_SCALE_CHANGED } from "@openvideo/timeline";
 import Effect from "./items/effect";
 import { useTimelineContextMenu, TimelineContextMenuProvider } from "./timeline-context-menu";
 import Shape from "./items/shape";
+import { useIsCompact } from "@/hooks/use-mobile";
+import { useTimelineGestures } from "./hooks/use-timeline-gestures";
 
 CanvasTimeline.registerItems({
   Text,
@@ -53,6 +55,12 @@ const Timeline = () => {
 
   const timelineOffsetX = useTimelineOffsetX();
   const timelineContainerRef = useRef<HTMLDivElement>(null);
+  // In compact (mobile/tablet) mode the 50px header is not rendered — its
+  // controls live in the shell's MobilePlaybackBar / MobileToolRibbon instead.
+  const isCompact = useIsCompact();
+  const headerHeight = isCompact ? 0 : 50;
+  // Header + Ruler (24px + 1px border) sit above the canvas.
+  const topUiOffset = headerHeight + 25;
   const onMouseDown = () => {};
   const onMouseMove = () => {};
   const onMouseOut = () => {};
@@ -111,11 +119,10 @@ const Timeline = () => {
       if (!entry || !canvasRef.current) return;
 
       const { height, width } = entry.contentRect;
-      // Dynamically calculate available height for the canvas
-      // Header is 50px, Ruler is 24px + 1px border = 25px.
-      // Total UI offset = 75px.
+      // Dynamically calculate available height for the canvas after the
+      // header/ruler UI offset (header is absent in compact mode).
       const containerWidth = width - timelineOffsetX;
-      const containerHeight = height - 75;
+      const containerHeight = height - topUiOffset;
 
       canvasRef.current.resize(
         {
@@ -128,7 +135,22 @@ const Timeline = () => {
 
     resizeObserver.observe(timelineContainerEl);
     return () => resizeObserver.disconnect();
-  }, [timelineOffsetX]);
+  }, [timelineOffsetX, topUiOffset]);
+
+  // Switching between compact and desktop changes the UI offset without
+  // necessarily resizing the container — re-fit the canvas explicitly.
+  useEffect(() => {
+    const el = timelineContainerRef.current;
+    const canvas = canvasRef.current;
+    if (!el || !canvas) return;
+    canvas.resize(
+      {
+        width: el.clientWidth - timelineOffsetX,
+        height: el.clientHeight - topUiOffset,
+      },
+      { force: true },
+    );
+  }, [topUiOffset, timelineOffsetX]);
 
   useEffect(() => {
     const canvasEl = canvasElRef.current;
@@ -136,9 +158,8 @@ const Timeline = () => {
 
     if (!canvasEl || !timelineContainerEl) return;
 
-    const containerWidth =
-      (document.getElementById("timeline-header")?.clientWidth || 0) - timelineOffsetX;
-    const containerHeight = (timelineContainerEl.clientHeight || 320) - 75;
+    const containerWidth = timelineContainerEl.clientWidth - timelineOffsetX;
+    const containerHeight = (timelineContainerEl.clientHeight || 320) - topUiOffset;
     const canvas = new CanvasTimeline(canvasEl, {
       width: containerWidth,
       height: containerHeight,
@@ -322,6 +343,19 @@ const Timeline = () => {
     setScrollLeft(newScrollLeft);
   };
 
+  // CapCut-style touch gestures (compact only): fixed-center playhead where
+  // panning scrubs, pinch-to-zoom, vertical track scroll, momentum.
+  useTimelineGestures({
+    enabled: isCompact,
+    timeline,
+    containerRef: timelineContainerRef,
+    timelineOffsetX,
+    scale,
+    setScale,
+    scrollLeft,
+    onScroll: onRulerScroll,
+  });
+
   useEffect(() => {
     const availableScroll = horizontalScrollbarVpRef.current?.scrollWidth;
     if (!availableScroll || !canvasRef.current) return;
@@ -390,19 +424,19 @@ const Timeline = () => {
         onMouseMove={onMouseMove}
         onMouseOut={onMouseOut}
       >
-        <Header scale={scale} setScale={setScale} />
+        {!isCompact && <Header scale={scale} setScale={setScale} />}
         <Ruler
           scale={scale}
           onClick={onClickRuler}
           scrollLeft={scrollLeft}
           onScroll={onRulerScroll}
         />
-        <Playhead scale={scale} scrollLeft={scrollLeft} />
+        <Playhead scale={scale} scrollLeft={scrollLeft} topOffset={headerHeight} />
 
         {/* Container for Tracks and Canvas */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <div style={{ width: timelineOffsetX }} className="relative flex-none" />
-          <div className="relative flex-1 min-h-0 overflow-hidden">
+          <div className="relative flex-1 min-h-0 overflow-hidden touch-none">
             <canvas id="designcombo-timeline-canvas" ref={canvasElRef} />
           </div>
         </div>

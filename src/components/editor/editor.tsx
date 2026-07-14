@@ -16,7 +16,9 @@ import { IProject } from "@openvideo/core";
 import { useProjectStore } from "@/stores/project-store";
 import Header from "./header";
 import { data } from "./data";
-import { MobileToolbar } from "./mobile-toolbar";
+import { MobileToolRibbon } from "./mobile-tool-ribbon";
+import { MobilePlaybackBar } from "./mobile-playback-bar";
+import { MobilePropertiesDrawer } from "./mobile-properties-drawer";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsCompact, useIsMobile } from "@/hooks/use-mobile";
 
@@ -115,6 +117,7 @@ export default function Editor({
           <div className="flex-1 min-h-0 overflow-visible">
             <CanvasPanel onReady={() => setIsReady(true)} />
           </div>
+          {isCompact && <MobilePlaybackBar />}
           {showTimeline &&
             (isCompact ? (
               <div className={`shrink-0 w-full ${isMobile ? "h-[190px]" : "h-[230px]"}`}>
@@ -141,15 +144,15 @@ export default function Editor({
         )}
       </div>
 
-      {/* Compact mode: bottom toolbar + panels as overlay sheets */}
-      {isCompact && <MobileToolbar />}
+      {/* Compact mode: CapCut-style bottom tool ribbon + panels as bottom drawers */}
+      {isCompact && <MobileToolRibbon />}
       {isCompact && (
         <>
           <Sheet open={mediaSheetOpen} onOpenChange={setMediaSheetOpen}>
             <SheetContent
-              side="left"
+              side="bottom"
               aria-describedby={undefined}
-              className="w-[85vw] max-w-[380px] p-0 gap-0"
+              className="!h-[65dvh] p-0 gap-0 rounded-t-2xl overflow-hidden flex flex-col"
             >
               <SheetTitle className="sr-only">Media</SheetTitle>
               <div className="flex-1 min-h-0 overflow-hidden">
@@ -157,15 +160,18 @@ export default function Editor({
               </div>
             </SheetContent>
           </Sheet>
-          <Sheet open={propertiesSheetOpen} onOpenChange={setPropertiesSheetOpen}>
+          {/* Non-modal, CapCut-style: preview + timeline stay interactive while
+              the property drawer is open; it closes via ✕ or on deselect. */}
+          <Sheet open={propertiesSheetOpen} onOpenChange={setPropertiesSheetOpen} modal={false}>
             <SheetContent
-              side="right"
+              side="bottom"
               aria-describedby={undefined}
-              className="w-[85vw] max-w-[380px] p-0 gap-0"
+              onInteractOutside={(e) => e.preventDefault()}
+              className="!h-[45dvh] p-0 gap-0 rounded-t-2xl overflow-hidden flex flex-col"
             >
               <SheetTitle className="sr-only">Properties</SheetTitle>
               <div className="flex-1 min-h-0 overflow-hidden">
-                <RightPanel />
+                <MobilePropertiesDrawer />
               </div>
             </SheetContent>
           </Sheet>
