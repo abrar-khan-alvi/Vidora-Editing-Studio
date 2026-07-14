@@ -1,38 +1,22 @@
-<p align="center">
-  <a href="https://github.com/openvideodev/openvideo">
-    <img width="150px" height="150px" src="https://cdn.scenify.io/openvideo-logo.png"/>
-  </a>
-</p>
-<h1 align="center">OpenVideo Editor</h1>
+<h1 align="center">CapCut Clone</h1>
 
-<p align="center">A lightweight, high-performance, client-side web video editor. It serves as a showcase for the OpenVideo engine and a starter kit for building video-editing SaaS applications.</p>
+<p align="center">A lightweight, high-performance, browser-based video editor — a client-side CapCut alternative that renders and exports entirely in the browser using WebCodecs, with zero server rendering costs.</p>
 
-<p align="center">
-    <a href="https://openvideo.dev/">Website</a>
-    ·
-    <a href="https://discord.gg/SCfMrQx8kr">Discord</a>
-    ·
-    <a href="https://docs.openvideo.dev">Docs</a>
-</p>
-
-<p align="center">
-    <a href="https://github.com/openvideodev/openvideo">
-        <img src="https://cdn.scenify.io/openpreview1.png" alt="OpenVideo Preview" />
-    </a>
-</p>
+<p align="center">Designed &amp; developed by <b>Abrar Khan Alvi</b></p>
 
 ---
 
 ## Key Features
 
-- **Client-Side Rendering**: Hardware-accelerated rendering and exporting using WebCodecs and PixiJS v8 via `@openvideo/engine-pixi`.
-- **Multi-Track Timeline**: Layered editing for video, audio, and images with drag-and-drop, splitting, trimming, and snapping.
-- **Interactive Canvas**: Real-time viewport preview supporting drag, resize, rotate, and layer re-ordering.
-- **Asset Management**: Local and cloud storage (e.g., Cloudflare R2, AWS S3) for media uploads.
-- **Effects & Transitions**: Custom shader-based transitions and effects applied between clips.
-- **Local Exporting**: Direct timeline rendering into MP4 files using browser APIs with zero server rendering costs.
-- **Modern UI/UX**: Dark-mode interface built with Tailwind CSS v4, Radix UI, and Framer Motion.
-
+- **Client-Side Rendering** — Hardware-accelerated preview and MP4 export using WebCodecs and PixiJS v8, entirely in the browser.
+- **Multi-Track Timeline** — Layered editing for video, audio, and images with drag-and-drop, splitting, trimming, and snapping.
+- **Interactive Canvas** — Real-time viewport preview supporting drag, resize, rotate, and layer re-ordering.
+- **Preview Proxies** — Heavy uploads are transcoded off the main thread into seek-friendly proxies (dense keyframes, capped resolution) so editing stays smooth; the original is restored automatically at export for full-quality output.
+- **In-Browser Transcription & Captions** — Audio is extracted client-side and transcribed via ElevenLabs Scribe to auto-generate styled captions, keeping the API key server-side.
+- **Stock Media Library** — Search and drop in stock video, music, and SFX, streamed through a same-origin, SSRF-guarded media proxy.
+- **Effects & Transitions** — Shader-based transitions and effects applied between clips.
+- **Local Exporting** — Direct timeline rendering into MP4 files using browser APIs, no server render farm required.
+- **Modern UI/UX** — Dark-first interface with a custom purple brand theme, built on Tailwind CSS v4, Radix UI, and Framer Motion.
 
 ---
 
@@ -41,11 +25,13 @@
 | Component | Technology |
 | :--- | :--- |
 | **Framework** | Next.js 15 (App Router) |
-| **Rendering** | PixiJS v8 via `@openvideo/engine-pixi` |
-| **Timeline & Core** | `@openvideo/core`, `@openvideo/timeline` |
+| **Rendering** | PixiJS v8 + WebCodecs |
 | **State** | Zustand |
 | **Styling** | Tailwind CSS v4 |
 | **UI & Animation** | Radix UI, shadcn/ui, Framer Motion |
+| **Media Processing** | mediabunny (WebCodecs) |
+| **Transcription** | ElevenLabs Scribe (with Deepgram fallback) |
+| **Storage** | Browser OPFS + optional Cloudflare R2 / AWS S3 |
 
 ---
 
@@ -53,19 +39,13 @@
 
 ### 1. Installation
 
-Install dependencies from the monorepo root or directly in this directory:
-
 ```bash
-# From the monorepo root
-pnpm install
-
-# Or within this directory (standalone)
 npm install
 ```
 
 ### 2. Environment Setup
 
-Copy `.env.sample` to `.env` and configure the required keys:
+Copy `.env.sample` to `.env` and configure the keys you need:
 
 ```bash
 cp .env.sample .env
@@ -73,16 +53,14 @@ cp .env.sample .env
 
 | Variable | Description |
 | :--- | :--- |
-| `R2_*` | Cloudflare R2 / S3 credentials and public CDN domain for asset uploads. |
-| `DEEPGRAM_API_KEY` | API key for audio and video transcription. |
+| `ELEVENLABS_API_KEY` | API key for in-browser audio/video transcription (captions). |
 | `PEXELS_API_KEY` | API key for the stock media library. |
-
+| `DEEPGRAM_API_KEY` | Optional fallback transcription provider (URL-based). |
+| `R2_*` | Optional Cloudflare R2 / S3 credentials + public CDN domain for cloud asset uploads. Omit to run fully local (OPFS). |
 
 ### 3. Run the Development Server
 
 ```bash
-pnpm dev
-# or
 npm run dev
 ```
 
@@ -90,14 +68,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## License & Commercial Usage
+## Author
 
-OpenVideo is available under a dual-license model:
+**Abrar Khan Alvi**
 
-- **Free License**: Free for individuals, non-profits, and organizations with up to 3 employees.
-- **Company License**: Required for organizations with more than 3 employees.
+Built as a portfolio project demonstrating a full client-side video-editing pipeline — proxy generation, browser-native transcoding/transcription, and WebCodecs export.
 
+## Acknowledgements
 
-For commercial licensing, custom integrations, or enterprise support, contact us at [cloud@openvideo.dev](mailto:cloud@openvideo.dev).
-
-# Vidora-Editing-Studio
+Built on the open-source [OpenVideo](https://openvideo.dev) rendering engine (`@openvideo/core`, `@openvideo/engine-pixi`, `@openvideo/timeline`). See [`LICENSE`](./LICENSE) for the engine's terms.
