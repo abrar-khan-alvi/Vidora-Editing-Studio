@@ -136,33 +136,44 @@ export function usePreviewGestures(containerRef: React.RefObject<HTMLDivElement 
 
     const endGesture = () => {
       if (!gesture) return;
-      const { clipId, clip } = gesture;
+      const { clipId, clip, x, y, w, h, angle } = gesture;
       gesture = null;
       if (raf !== null) {
         cancelAnimationFrame(raf);
         raf = null;
       }
-      // Single history entry for the whole gesture.
-      const coreClip = projectStore.getState().clips[clipId] as any;
-      const updates: any = {
-        transform: {
-          ...(coreClip?.transform ?? {}),
-          x: clip.left,
-          y: clip.top,
-          width: clip.width,
-          height: clip.height,
-          angle: clip.angle,
-        },
-      };
-      // Note: Text/Caption clips keep their font size — the pinch scales the
-      // box (wrap width). Scaling fontSize here clips the glyphs against the
-      // committed box because the engine recomputes text bounds internally.
-      core.clip.update(clipId, updates);
-      try {
-        (studio as any).selection?.refreshClipHitArea?.(clip);
-        (studio as any).selection?.recreateTransformer?.();
-      } catch {
-        /* transformer refresh is cosmetic */
+      // A two-finger tap (no actual movement) must not pollute undo history
+      // with a no-op update.
+      const changed =
+        Math.abs((clip.left ?? 0) - x) > 0.01 ||
+        Math.abs((clip.top ?? 0) - y) > 0.01 ||
+        Math.abs((clip.width ?? 0) - w) > 0.01 ||
+        Math.abs((clip.height ?? 0) - h) > 0.01 ||
+        Math.abs((clip.angle ?? 0) - angle) > 0.01;
+
+      if (changed) {
+        // Single history entry for the whole gesture.
+        const coreClip = projectStore.getState().clips[clipId] as any;
+        const updates: any = {
+          transform: {
+            ...(coreClip?.transform ?? {}),
+            x: clip.left,
+            y: clip.top,
+            width: clip.width,
+            height: clip.height,
+            angle: clip.angle,
+          },
+        };
+        // Note: Text/Caption clips keep their font size — the pinch scales the
+        // box (wrap width). Scaling fontSize here clips the glyphs against the
+        // committed box because the engine recomputes text bounds internally.
+        core.clip.update(clipId, updates);
+        try {
+          (studio as any).selection?.refreshClipHitArea?.(clip);
+          (studio as any).selection?.recreateTransformer?.();
+        } catch {
+          /* transformer refresh is cosmetic */
+        }
       }
       setTransformerVisible(true);
     };

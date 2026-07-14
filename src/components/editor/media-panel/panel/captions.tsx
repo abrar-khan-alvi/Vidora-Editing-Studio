@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { nanoid } from "nanoid";
 import { extractAudioForTranscription } from "@/lib/audio-extract";
 import { isOpfsSrc, loadFromOpfs } from "@/lib/opfs-storage";
+import { toast } from "sonner";
 
 /**
  * Resolves a media clip's bytes into a Blob for transcription. Works for local
@@ -112,6 +113,7 @@ export default function PanelCaptions() {
       });
 
       const clipsToAdd: any[] = [];
+      let failedClips = 0;
 
       for (const mediaClip of mediaItems) {
         try {
@@ -122,6 +124,7 @@ export default function PanelCaptions() {
           const mediaBlob = await resolveClipBlob(mediaClip);
           if (!mediaBlob) {
             Log.error(`No media bytes for clip ${mediaClip.id}`);
+            failedClips++;
             continue;
           }
 
@@ -133,7 +136,15 @@ export default function PanelCaptions() {
           const rate = timing.playbackRate || 1;
           const displayFromUs = timing.display?.from ?? 0;
           const displayToUs = timing.display?.to ?? 0;
-          const displayLenUs = Math.max(0, displayToUs - displayFromUs);
+          let displayLenUs = Math.max(0, displayToUs - displayFromUs);
+          if (displayLenUs === 0) {
+            // display.to === 0 marks an open-ended clip — fall back to its
+            // duration so these clips still get captions.
+            displayLenUs = Math.max(
+              0,
+              timing.duration ?? (mediaClip as any).duration ?? 0,
+            );
+          }
           const trimFromUs = timing.trim?.from ?? 0;
           const consumedUs = trimFromUs + displayLenUs * rate;
           const trimToUs = Math.min(
@@ -161,6 +172,7 @@ export default function PanelCaptions() {
 
           if (!transcribeResponse.ok) {
             Log.error(`Transcription failed for media ${mediaClip.id}`);
+            failedClips++;
             continue;
           }
 
@@ -220,6 +232,7 @@ export default function PanelCaptions() {
           }
         } catch (error) {
           Log.error(`Failed to process media ${mediaClip.id}:`, error);
+          failedClips++;
         }
       }
 
@@ -258,7 +271,6 @@ export default function PanelCaptions() {
 
       if (clipsToAdd.length > 0) {
         const fullClips = await Promise.all(clipsToAdd.map((c) => core.clip.prepare(c as any)));
-        console.log({ fullClips });
         const addCommands = fullClips.map((clip) => ({
           id: nanoid(),
           type: "clip.add",
@@ -266,11 +278,22 @@ export default function PanelCaptions() {
         }));
 
         core.batch([trackCommand, ...addCommands] as any[]);
+        if (failedClips > 0) {
+          toast.warning(
+            `Captions added, but ${failedClips} clip${failedClips > 1 ? "s" : ""} couldn't be transcribed.`,
+          );
+        } else {
+          toast.success(`Added ${clipsToAdd.length} caption${clipsToAdd.length > 1 ? "s" : ""}.`);
+        }
+      } else if (failedClips > 0) {
+        // Don't add an empty caption track — tell the user what happened.
+        toast.error("Caption generation failed. Check your connection and try again.");
       } else {
-        core.execute(trackCommand as any);
+        toast.info("No speech was detected in your clips, so no captions were created.");
       }
     } catch (error) {
       Log.error("Failed to generate captions:", error);
+      toast.error("Caption generation failed. Please try again.");
     } finally {
       setIsGenerating(false);
     }
