@@ -42,3 +42,6 @@ next-env.d.ts
 
 /src/generated/prisma
 *.swc
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
